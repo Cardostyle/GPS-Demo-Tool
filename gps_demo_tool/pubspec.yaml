@@ -10,6 +10,9 @@ dependencies:
   flutter:
     sdk: flutter
   geolocator: ^14.0.2
+  image_picker: 1.2.0
+  native_exif: 0.8.0
+  path_provider: 2.1.5
 
 dev_dependencies:
   flutter_test:
