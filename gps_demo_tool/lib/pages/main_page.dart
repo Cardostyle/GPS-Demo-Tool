@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:gps_demo_tool/pages/mwki_page.dart';
+import 'package:gps_demo_tool/pages/photo_experiment_page.dart';
+import 'package:gps_demo_tool/pages/tracking_page.dart';
 import 'package:gps_demo_tool/pages/walking_page.dart';
 
 class HomePage extends StatelessWidget {
@@ -26,13 +27,13 @@ class HomePage extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute<void>(
-                      builder: (context) => const WalkingPage(),
+                      builder: (context) => const PhotoExperimentPage(),
                     ),
                   );
                 },
-                child: const Text('Zur Laufen-Seite'),
+                child: const Text('Foto-Experiment'),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 50),
@@ -41,11 +42,26 @@ class HomePage extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute<void>(
-                      builder: (context) => const MWKIPage(),
+                      builder: (context) => const TrackingPage(),
                     ),
                   );
                 },
-                child: const Text('Zur MeineWaldKI Seite'),
+                child: const Text('Tracking-Modus'),
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (context) => const WalkingPage(),
+                    ),
+                  );
+                },
+                child: const Text('Einzelposition testen'),
               ),
             ],
           ),
