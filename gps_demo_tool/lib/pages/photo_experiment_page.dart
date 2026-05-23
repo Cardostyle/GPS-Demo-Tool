@@ -69,12 +69,21 @@ class _PhotoExperimentPageState extends State<PhotoExperimentPage> {
         },
       );
 
-      if (!mounted) return;
       setState(() {
         lastRecord = record;
+
+        // Fotos nur aus der Page/cache entfernen,
+        // die gespeicherten Dateien bleiben im Documents-Ordner erhalten.
         photo = null;
         referencePhoto = null;
-        status = 'Fertig. ${record.measurements.length} Messungen gespeichert. Foto wurde von der Seite entfernt.';
+
+        // Eingabefelder nach abgeschlossener Messung leeren.
+        noteController.clear();
+        referenceLatitudeController.clear();
+        referenceLongitudeController.clear();
+        referenceAltitudeController.clear();
+
+        status = 'Fertig. ${record.measurements.length} Messungen gespeichert. Foto, Notizen und Referenzdaten wurden von der Seite entfernt.';
       });
     } catch (error) {
       if (!mounted) return;
