@@ -125,9 +125,6 @@ class GnssMeasurement {
         'altitude': altitude,
         'timestampUtc': timestampUtc.toIso8601String(),
         'measuredAtUtc': measuredAtUtc.toIso8601String(),
-        'deviceModel': deviceModel,
-        'androidVersion': androidVersion,
-        'environmentType': environmentType.label,
         'locationAccuracyMeters': locationAccuracyMeters,
         'altitudeAccuracyMeters': altitudeAccuracyMeters,
         'heading': heading,
@@ -138,7 +135,6 @@ class GnssMeasurement {
         'cn0DbHz': cn0DbHz,
         'hdop': hdop,
         'pdop': pdop,
-        'note': note,
       };
 }
 
