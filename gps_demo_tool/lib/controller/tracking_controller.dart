@@ -28,8 +28,12 @@ class TrackingController {
       throw const GnssException('Das Intervall muss größer als 0 Sekunden sein.');
     }
 
-    final id = newExperimentId('tracking');
-    final createdAt = DateTime.now().toUtc();
+    final createdAt = DateTime.now();
+    final incId = await _storage.nextIncrementForDate(
+      prefix: 'Tracking',
+      date: createdAt,
+    );
+    final id = 'Tracking_${dateForId(createdAt)}_$incId';
     final measurements = <GnssMeasurement>[];
     final count = (durationSeconds / intervalSeconds).ceil();
 
@@ -53,7 +57,7 @@ class TrackingController {
 
     final record = TrackingExperimentRecord(
       id: id,
-      createdAtUtc: createdAt,
+      createdAtUtc: createdAt.toUtc(),
       durationSeconds: durationSeconds,
       intervalSeconds: intervalSeconds,
       environmentType: environmentType,

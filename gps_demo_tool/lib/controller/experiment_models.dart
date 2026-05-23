@@ -1,7 +1,15 @@
 import 'dart:convert';
 
-String newExperimentId(String prefix) =>
-    '${prefix}_${DateTime.now().toUtc().toIso8601String().replaceAll(':', '-')}';
+String dateForId(DateTime dateTime) {
+  final local = dateTime.toLocal();
+  final year = local.year.toString().padLeft(4, '0');
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  return '$year-$month-$day';
+}
+
+String utcTimestampForFile(DateTime dateTime) =>
+    dateTime.toUtc().toIso8601String().replaceAll(':', '-');
 
 enum EnvironmentType {
   openArea('freie Fläche'),
@@ -10,6 +18,26 @@ enum EnvironmentType {
 
   const EnvironmentType(this.label);
   final String label;
+}
+
+class ReferenceData {
+  const ReferenceData({
+    this.latitude,
+    this.longitude,
+    this.altitude,
+  });
+
+  final double? latitude;
+  final double? longitude;
+  final double? altitude;
+
+  bool get hasAnyValue => latitude != null || longitude != null || altitude != null;
+
+  Map<String, dynamic> toJson() => {
+        'latitude': latitude,
+        'longitude': longitude,
+        'altitude': altitude,
+      };
 }
 
 class GnssMeasurement {
@@ -23,6 +51,7 @@ class GnssMeasurement {
     required this.timestampUtc,
     required this.measuredAtUtc,
     required this.deviceModel,
+    required this.androidVersion,
     required this.environmentType,
     required this.locationAccuracyMeters,
     required this.offsetSeconds,
@@ -46,6 +75,7 @@ class GnssMeasurement {
   final DateTime timestampUtc;
   final DateTime measuredAtUtc;
   final String deviceModel;
+  final String? androidVersion;
   final EnvironmentType environmentType;
   final double locationAccuracyMeters;
   final double? altitudeAccuracyMeters;
@@ -59,6 +89,33 @@ class GnssMeasurement {
   final double? pdop;
   final String? note;
 
+  GnssMeasurement copyWith({String? note}) {
+    return GnssMeasurement(
+      id: id,
+      experimentId: experimentId,
+      sequenceNumber: sequenceNumber,
+      latitude: latitude,
+      longitude: longitude,
+      altitude: altitude,
+      timestampUtc: timestampUtc,
+      measuredAtUtc: measuredAtUtc,
+      deviceModel: deviceModel,
+      androidVersion: androidVersion,
+      environmentType: environmentType,
+      locationAccuracyMeters: locationAccuracyMeters,
+      altitudeAccuracyMeters: altitudeAccuracyMeters,
+      heading: heading,
+      speed: speed,
+      offsetSeconds: offsetSeconds,
+      visibleSatellites: visibleSatellites,
+      usedSatellites: usedSatellites,
+      cn0DbHz: cn0DbHz,
+      hdop: hdop,
+      pdop: pdop,
+      note: note ?? this.note,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'experimentId': experimentId,
@@ -69,6 +126,7 @@ class GnssMeasurement {
         'timestampUtc': timestampUtc.toIso8601String(),
         'measuredAtUtc': measuredAtUtc.toIso8601String(),
         'deviceModel': deviceModel,
+        'androidVersion': androidVersion,
         'environmentType': environmentType.label,
         'locationAccuracyMeters': locationAccuracyMeters,
         'altitudeAccuracyMeters': altitudeAccuracyMeters,
@@ -91,18 +149,26 @@ class PhotoExperimentRecord {
     required this.environmentType,
     required this.measurements,
     this.note,
+    this.referenceData,
     this.photoPath,
+    this.photoRelativePath,
     this.referencePhotoPath,
+    this.referencePhotoRelativePath,
     this.photoMetadata,
+    this.referencePhotoMetadata,
   });
 
   final String id;
   final DateTime createdAtUtc;
   final EnvironmentType environmentType;
   final String? note;
+  final ReferenceData? referenceData;
   final String? photoPath;
+  final String? photoRelativePath;
   final String? referencePhotoPath;
+  final String? referencePhotoRelativePath;
   final Map<String, dynamic>? photoMetadata;
+  final Map<String, dynamic>? referencePhotoMetadata;
   final List<GnssMeasurement> measurements;
 
   Map<String, dynamic> toJson() => {
@@ -110,10 +176,16 @@ class PhotoExperimentRecord {
         'type': 'photo_experiment',
         'createdAtUtc': createdAtUtc.toIso8601String(),
         'environmentType': environmentType.label,
+        'deviceModel': measurements.isEmpty ? null : measurements.first.deviceModel,
+        'androidVersion': measurements.isEmpty ? null : measurements.first.androidVersion,
         'note': note,
+        'referenceData': referenceData?.toJson(),
         'photoPath': photoPath,
+        'photoRelativePath': photoRelativePath,
         'referencePhotoPath': referencePhotoPath,
+        'referencePhotoRelativePath': referencePhotoRelativePath,
         'photoMetadata': photoMetadata,
+        'referencePhotoMetadata': referencePhotoMetadata,
         'measurements': measurements.map((e) => e.toJson()).toList(),
       };
 
@@ -146,6 +218,8 @@ class TrackingExperimentRecord {
         'durationSeconds': durationSeconds,
         'intervalSeconds': intervalSeconds,
         'environmentType': environmentType.label,
+        'deviceModel': measurements.isEmpty ? null : measurements.first.deviceModel,
+        'androidVersion': measurements.isEmpty ? null : measurements.first.androidVersion,
         'note': note,
         'measurements': measurements.map((e) => e.toJson()).toList(),
       };

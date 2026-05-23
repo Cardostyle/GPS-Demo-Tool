@@ -56,17 +56,41 @@ class PhotoExperimentController {
 
   Future<PhotoExperimentRecord> runPhotoExperiment({
     required EnvironmentType environmentType,
-    required bool keepImageFile,
-    String? note,
-    XFile? photo,
+    required XFile photo,
     XFile? referencePhoto,
+    String? Function()? readCurrentNote,
+    ReferenceData? Function()? readCurrentReferenceData,
     void Function(String status)? onStatus,
   }) async {
-    final id = newExperimentId('photo');
-    final createdAt = DateTime.now().toUtc();
-    final imagePath = photo?.path;
-    final metadata = await readExifMetadata(imagePath);
+    final createdAt = DateTime.now();
+    final incId = await _storage.nextIncrementForDate(
+      prefix: 'Foto',
+      date: createdAt,
+    );
+    final id = 'Foto_${dateForId(createdAt)}_$incId';
     final measurements = <GnssMeasurement>[];
+
+    onStatus?.call('Foto wird in den Experiment-Ordner kopiert...');
+    final savedPhoto = await _storage.copyImageToExperimentFolder(
+      sourcePath: photo.path,
+      experimentId: id,
+      subfolder: 'fotos',
+      fileBaseName: '${id}_foto',
+    );
+
+    SavedImageFile? savedReferencePhoto;
+    if (referencePhoto != null) {
+      onStatus?.call('Referenzfoto wird in den Experiment-Ordner kopiert...');
+      savedReferencePhoto = await _storage.copyImageToExperimentFolder(
+        sourcePath: referencePhoto.path,
+        experimentId: id,
+        subfolder: 'referenzfotos',
+        fileBaseName: '${id}_referenzfoto',
+      );
+    }
+
+    final metadata = await readExifMetadata(savedPhoto.file.path);
+    final referenceMetadata = await readExifMetadata(savedReferencePhoto?.file.path);
 
     for (var i = 0; i < measurementOffsetsSeconds.length; i++) {
       final offset = measurementOffsetsSeconds[i];
@@ -75,30 +99,47 @@ class PhotoExperimentController {
         await Future<void>.delayed(Duration(seconds: offset - previousOffset));
       }
 
+      final currentNote = _cleanText(readCurrentNote?.call());
       onStatus?.call('Messung ${i + 1}/${measurementOffsetsSeconds.length} bei +${offset}s läuft...');
       final measurement = await _gnss.takeMeasurement(
         experimentId: id,
         sequenceNumber: i + 1,
         environmentType: environmentType,
         offsetSeconds: offset,
-        note: note,
+        note: currentNote,
       );
       measurements.add(measurement);
     }
 
+    final finalNote = _cleanText(readCurrentNote?.call());
+    final finalReferenceData = readCurrentReferenceData?.call();
+    final normalizedMeasurements = measurements
+        .map((measurement) => measurement.copyWith(note: finalNote))
+        .toList(growable: false);
+
     final record = PhotoExperimentRecord(
       id: id,
-      createdAtUtc: createdAt,
+      createdAtUtc: createdAt.toUtc(),
       environmentType: environmentType,
-      note: note,
-      photoPath: keepImageFile ? imagePath : null,
-      referencePhotoPath: referencePhoto?.path,
+      note: finalNote,
+      referenceData: finalReferenceData?.hasAnyValue == true ? finalReferenceData : null,
+      photoPath: savedPhoto.file.path,
+      photoRelativePath: savedPhoto.relativePath,
+      referencePhotoPath: savedReferencePhoto?.file.path,
+      referencePhotoRelativePath: savedReferencePhoto?.relativePath,
       photoMetadata: metadata,
-      measurements: measurements,
+      referencePhotoMetadata: referenceMetadata,
+      measurements: normalizedMeasurements,
     );
 
     await _storage.saveJson(fileName: id, json: record.toJson());
     onStatus?.call('Gespeichert: $id.json');
     return record;
+  }
+
+  String? _cleanText(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    return trimmed;
   }
 }

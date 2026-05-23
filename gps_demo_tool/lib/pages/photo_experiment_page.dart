@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'package:gps_demo_tool/controller/exporting.dart';
+import 'package:gps_demo_tool/controller/experiment_models.dart';
+import 'package:gps_demo_tool/controller/photo_experiment_controller.dart';
 
 class PhotoExperimentPage extends StatefulWidget {
   const PhotoExperimentPage({super.key});
@@ -13,9 +14,11 @@ class PhotoExperimentPage extends StatefulWidget {
 class _PhotoExperimentPageState extends State<PhotoExperimentPage> {
   final controller = PhotoExperimentController();
   final noteController = TextEditingController();
+  final referenceLatitudeController = TextEditingController();
+  final referenceLongitudeController = TextEditingController();
+  final referenceAltitudeController = TextEditingController();
 
   EnvironmentType environmentType = EnvironmentType.openArea;
-  bool keepImageFile = true;
   bool isRunning = false;
   String status = 'Noch kein Foto-Experiment gestartet.';
   PhotoExperimentRecord? lastRecord;
@@ -41,6 +44,12 @@ class _PhotoExperimentPageState extends State<PhotoExperimentPage> {
   }
 
   Future<void> startExperiment() async {
+    final selectedPhoto = photo;
+    if (selectedPhoto == null) {
+      setState(() => status = 'Bitte zuerst ein Foto aufnehmen. Danach kann die Messung gestartet werden.');
+      return;
+    }
+
     setState(() {
       isRunning = true;
       status = 'Foto-Experiment wird vorbereitet...';
@@ -50,10 +59,10 @@ class _PhotoExperimentPageState extends State<PhotoExperimentPage> {
     try {
       final record = await controller.runPhotoExperiment(
         environmentType: environmentType,
-        keepImageFile: keepImageFile,
-        note: noteController.text.trim().isEmpty ? null : noteController.text.trim(),
-        photo: photo,
+        photo: selectedPhoto,
         referencePhoto: referencePhoto,
+        readCurrentNote: () => noteController.text,
+        readCurrentReferenceData: readReferenceData,
         onStatus: (value) {
           if (!mounted) return;
           setState(() => status = value);
@@ -63,7 +72,9 @@ class _PhotoExperimentPageState extends State<PhotoExperimentPage> {
       if (!mounted) return;
       setState(() {
         lastRecord = record;
-        status = 'Fertig. ${record.measurements.length} Messungen gespeichert.';
+        photo = null;
+        referencePhoto = null;
+        status = 'Fertig. ${record.measurements.length} Messungen gespeichert. Foto wurde von der Seite entfernt.';
       });
     } catch (error) {
       if (!mounted) return;
@@ -75,14 +86,27 @@ class _PhotoExperimentPageState extends State<PhotoExperimentPage> {
     }
   }
 
+  ReferenceData readReferenceData() {
+    return ReferenceData(
+      latitude: double.tryParse(referenceLatitudeController.text.trim().replaceAll(',', '.')),
+      longitude: double.tryParse(referenceLongitudeController.text.trim().replaceAll(',', '.')),
+      altitude: double.tryParse(referenceAltitudeController.text.trim().replaceAll(',', '.')),
+    );
+  }
+
   @override
   void dispose() {
     noteController.dispose();
+    referenceLatitudeController.dispose();
+    referenceLongitudeController.dispose();
+    referenceAltitudeController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final canStart = !isRunning && photo != null;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Foto-Experiment')),
       body: SafeArea(
@@ -116,40 +140,79 @@ class _PhotoExperimentPageState extends State<PhotoExperimentPage> {
               const SizedBox(height: 12),
               TextField(
                 controller: noteController,
-                enabled: !isRunning,
+                enabled: true,
                 maxLines: 3,
                 decoration: const InputDecoration(
                   labelText: 'Bemerkungen / Notizen',
+                  helperText: 'Kann auch während der Messung weiter bearbeitet werden.',
                   border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Bilddatei speichern'),
-                subtitle: const Text('Aus: nur EXIF-/Fotometadaten im JSON speichern'),
-                value: keepImageFile,
-                onChanged: isRunning ? null : (value) => setState(() => keepImageFile = value),
+              Text(
+                'Referenzdaten',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: referenceLatitudeController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Ref. Lat',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: referenceLongitudeController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Ref. Long',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: referenceAltitudeController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Ref. Alt',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: isRunning ? null : takePhoto,
                 icon: const Icon(Icons.photo_camera),
-                label: Text(photo == null ? 'Foto aufnehmen' : 'Foto ersetzen'),
+                label: Text(photo == null ? 'Foto aufnehmen' : 'Foto ersetzen: ${photo!.name}'),
               ),
               OutlinedButton.icon(
                 onPressed: isRunning ? null : takeReferencePhoto,
                 icon: const Icon(Icons.fact_check),
                 label: Text(referencePhoto == null
                     ? 'Referenzgerät fotografieren'
-                    : 'Referenzfoto ersetzen'),
+                    : 'Referenzfoto ersetzen: ${referencePhoto!.name}'),
               ),
               const SizedBox(height: 20),
               ElevatedButton.icon(
-                onPressed: isRunning ? null : startExperiment,
+                onPressed: canStart ? startExperiment : null,
                 icon: const Icon(Icons.play_arrow),
                 label: const Text('5 GNSS-Messungen starten'),
               ),
+              if (photo == null && !isRunning) ...[
+                const SizedBox(height: 8),
+                const Text('Start erst möglich, wenn ein Foto hinterlegt ist.'),
+              ],
               const SizedBox(height: 20),
               Card(
                 child: Padding(
@@ -160,7 +223,10 @@ class _PhotoExperimentPageState extends State<PhotoExperimentPage> {
               if (lastRecord != null) ...[
                 const SizedBox(height: 16),
                 Text(
-                  'Datensatz: ${lastRecord!.id}\nMessungen: ${lastRecord!.measurements.length}',
+                  'Datensatz: ${lastRecord!.id}\n'
+                  'Messungen: ${lastRecord!.measurements.length}\n'
+                  'Foto: ${lastRecord!.photoRelativePath ?? '-'}\n'
+                  'Referenzfoto: ${lastRecord!.referencePhotoRelativePath ?? '-'}',
                   style: Theme.of(context).textTheme.bodyLarge,
                 ),
               ],

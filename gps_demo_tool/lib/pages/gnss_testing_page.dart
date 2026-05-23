@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:gps_demo_tool/controller/walking.dart';
 
-class WalkingPage extends StatefulWidget {
-  const WalkingPage({super.key});
+import 'package:gps_demo_tool/controller/gnss_testing_controller.dart';
+
+class GnssTestingPage extends StatefulWidget {
+  const GnssTestingPage({super.key});
 
   @override
-  State<WalkingPage> createState() => _WalkingPageState();
+  State<GnssTestingPage> createState() => _GnssTestingPageState();
 }
 
-class _WalkingPageState extends State<WalkingPage> {
-  final controller = WalkingController();
+class _GnssTestingPageState extends State<GnssTestingPage> {
+  final controller = GnssTestingController();
 
   String resultText = 'Noch keine Position abgerufen.';
   bool isLoading = false;
@@ -33,7 +34,7 @@ class _WalkingPageState extends State<WalkingPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Laufen-Seite'),
+        title: const Text('GNSS Testing'),
       ),
       body: Center(
         child: Padding(
@@ -53,7 +54,7 @@ class _WalkingPageState extends State<WalkingPage> {
                   minimumSize: const Size(double.infinity, 50),
                 ),
                 onPressed: isLoading ? null : getCurrentLocation,
-                child: Text(isLoading ? 'Lädt...' : 'GPS-Position abrufen'),
+                child: Text(isLoading ? 'Lädt...' : 'GNSS-Position testen'),
               ),
             ],
           ),

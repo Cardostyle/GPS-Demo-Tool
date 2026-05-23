@@ -1,10 +1,14 @@
-import 'dart:io';
-
 import 'package:geolocator/geolocator.dart';
 
+import 'device_info_controller.dart';
 import 'experiment_models.dart';
 
 class GnssController {
+  GnssController({DeviceInfoController? deviceInfoController})
+      : _deviceInfoController = deviceInfoController ?? DeviceInfoController();
+
+  final DeviceInfoController _deviceInfoController;
+
   Future<String?> ensureLocationReady() async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
@@ -44,11 +48,12 @@ class GnssController {
       timeLimit: const Duration(seconds: 15),
     );
 
+    final deviceInfo = await _deviceInfoController.readDeviceInfo();
     final measuredAt = DateTime.now().toUtc();
     final timestamp = position.timestamp.toUtc();
 
     return GnssMeasurement(
-      id: '${experimentId}_m$sequenceNumber',
+      id: '${experimentId}_M$sequenceNumber',
       experimentId: experimentId,
       sequenceNumber: sequenceNumber,
       latitude: position.latitude,
@@ -56,7 +61,8 @@ class GnssController {
       altitude: position.altitude,
       timestampUtc: timestamp,
       measuredAtUtc: measuredAt,
-      deviceModel: _deviceLabel(),
+      deviceModel: deviceInfo.deviceModel,
+      androidVersion: deviceInfo.androidVersion,
       environmentType: environmentType,
       locationAccuracyMeters: position.accuracy,
       altitudeAccuracyMeters: position.altitudeAccuracy,
@@ -73,10 +79,6 @@ class GnssController {
       hdop: null,
       pdop: null,
     );
-  }
-
-  String _deviceLabel() {
-    return '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
   }
 }
 

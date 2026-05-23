@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:gps_demo_tool/pages/gnss_testing_page.dart';
 import 'package:gps_demo_tool/pages/photo_experiment_page.dart';
 import 'package:gps_demo_tool/pages/tracking_page.dart';
-import 'package:gps_demo_tool/pages/walking_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -57,11 +57,11 @@ class HomePage extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute<void>(
-                      builder: (context) => const WalkingPage(),
+                      builder: (context) => const GnssTestingPage(),
                     ),
                   );
                 },
-                child: const Text('Einzelposition testen'),
+                child: const Text('GNSS Testing'),
               ),
             ],
           ),

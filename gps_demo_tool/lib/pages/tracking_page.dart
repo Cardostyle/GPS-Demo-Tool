@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:gps_demo_tool/controller/exporting.dart';
+import 'package:gps_demo_tool/controller/experiment_models.dart';
+import 'package:gps_demo_tool/controller/tracking_controller.dart';
 
 class TrackingPage extends StatefulWidget {
   const TrackingPage({super.key});
@@ -156,7 +157,8 @@ class _TrackingPageState extends State<TrackingPage> {
                     (point) => Text(
                       '#${point.sequenceNumber}: ${point.latitude.toStringAsFixed(6)}, '
                       '${point.longitude.toStringAsFixed(6)} | '
-                      '${point.locationAccuracyMeters.toStringAsFixed(1)} m',
+                      '${point.locationAccuracyMeters.toStringAsFixed(1)} m | '
+                      '${point.deviceModel} Android ${point.androidVersion ?? '-'}',
                     ),
                   ),
               if (measurements.length > 5) const Text('...'),
