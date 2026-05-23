@@ -138,20 +138,23 @@ class _PhotoExperimentPageState extends State<PhotoExperimentPage> {
                       },
               ),
               const SizedBox(height: 12),
-              TextField(
-                controller: noteController,
-                enabled: true,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Bemerkungen / Notizen',
-                  helperText: 'Kann auch während der Messung weiter bearbeitet werden.',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
               Text(
                 'Referenzdaten',
                 style: Theme.of(context).textTheme.titleMedium,
+              ),
+
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: isRunning ? null : takePhoto,
+                icon: const Icon(Icons.photo_camera),
+                label: Text(photo == null ? 'Foto aufnehmen' : 'Foto ersetzen'),
+              ),
+              OutlinedButton.icon(
+                onPressed: isRunning ? null : takeReferencePhoto,
+                icon: const Icon(Icons.fact_check),
+                label: Text(referencePhoto == null
+                    ? 'Fotonotiz'
+                    : 'Fotonotiz ersetzen'),
               ),
               const SizedBox(height: 8),
               Row(
@@ -191,17 +194,15 @@ class _PhotoExperimentPageState extends State<PhotoExperimentPage> {
                 ],
               ),
               const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: isRunning ? null : takePhoto,
-                icon: const Icon(Icons.photo_camera),
-                label: Text(photo == null ? 'Foto aufnehmen' : 'Foto ersetzen: ${photo!.name}'),
-              ),
-              OutlinedButton.icon(
-                onPressed: isRunning ? null : takeReferencePhoto,
-                icon: const Icon(Icons.fact_check),
-                label: Text(referencePhoto == null
-                    ? 'Referenzgerät fotografieren'
-                    : 'Referenzfoto ersetzen: ${referencePhoto!.name}'),
+              TextField(
+                controller: noteController,
+                enabled: true,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Bemerkungen / Notizen',
+                  helperText: 'Kann auch während der Messung weiter bearbeitet werden.',
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 20),
               ElevatedButton.icon(

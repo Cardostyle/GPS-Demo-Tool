@@ -70,12 +70,11 @@ class StorageController {
 
   Future<SavedImageFile> copyImageToExperimentFolder({
     required String sourcePath,
-    required String experimentId,
     required String subfolder,
     required String fileBaseName,
   }) async {
     final directory = await experimentDirectory();
-    final imageDirectory = Directory('${directory.path}/$subfolder/$experimentId');
+    final imageDirectory = Directory('${directory.path}/$subfolder');
 
     if (!await imageDirectory.exists()) {
       await imageDirectory.create(recursive: true);
@@ -86,7 +85,7 @@ class StorageController {
     final targetName = '$safeBaseName$extension';
     final targetFile = File('${imageDirectory.path}/$targetName');
     final copied = await File(sourcePath).copy(targetFile.path);
-    final relativePath = '$subfolder/$experimentId/$targetName';
+    final relativePath = '$subfolder/$targetName';
 
     return SavedImageFile(
       file: copied,

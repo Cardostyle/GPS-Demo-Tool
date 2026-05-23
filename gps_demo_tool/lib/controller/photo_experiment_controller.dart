@@ -73,7 +73,6 @@ class PhotoExperimentController {
     onStatus?.call('Foto wird in den Experiment-Ordner kopiert...');
     final savedPhoto = await _storage.copyImageToExperimentFolder(
       sourcePath: photo.path,
-      experimentId: id,
       subfolder: 'fotos',
       fileBaseName: '${id}_foto',
     );
@@ -83,7 +82,6 @@ class PhotoExperimentController {
       onStatus?.call('Referenzfoto wird in den Experiment-Ordner kopiert...');
       savedReferencePhoto = await _storage.copyImageToExperimentFolder(
         sourcePath: referencePhoto.path,
-        experimentId: id,
         subfolder: 'referenzfotos',
         fileBaseName: '${id}_referenzfoto',
       );
