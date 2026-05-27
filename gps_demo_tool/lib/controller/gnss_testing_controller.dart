@@ -20,8 +20,13 @@ class GnssTestingController {
           'Longitude: ${measurement.longitude}\n'
           'Höhe: ${measurement.altitude.toStringAsFixed(2)} m\n'
           'Genauigkeit: ${measurement.locationAccuracyMeters.toStringAsFixed(2)} m\n'
+          'Sichtbare Satelliten: ${measurement.visibleSatellites ?? 'null'}\n'
+          'Verwendete Satelliten: ${measurement.usedSatellites ?? 'null'}\n'
+          'C/N0 Ø: ${measurement.cn0DbHz?.toStringAsFixed(1) ?? 'null'} dB-Hz\n'
+          'HDOP: ${measurement.hdop?.toStringAsFixed(2) ?? 'null'}\n'
+          'PDOP: ${measurement.pdop?.toStringAsFixed(2) ?? 'null'}\n'
           'Gerät: ${measurement.deviceModel}\n'
-          'Android: ${measurement.androidVersion ?? '-'}\n'
+          'Android: ${measurement.androidVersion ?? 'null'}\n'
           'UTC: ${measurement.timestampUtc.toIso8601String()}';
     } on GnssException catch (error) {
       return error.message;

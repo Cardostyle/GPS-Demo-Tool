@@ -2,12 +2,18 @@ import 'package:geolocator/geolocator.dart';
 
 import 'device_info_controller.dart';
 import 'experiment_models.dart';
+import 'gnss_auxiliary_data_controller.dart';
 
 class GnssController {
-  GnssController({DeviceInfoController? deviceInfoController})
-      : _deviceInfoController = deviceInfoController ?? DeviceInfoController();
+  GnssController({
+    DeviceInfoController? deviceInfoController,
+    GnssAuxiliaryDataController? auxiliaryDataController,
+  })  : _deviceInfoController = deviceInfoController ?? DeviceInfoController(),
+        _auxiliaryDataController =
+            auxiliaryDataController ?? GnssAuxiliaryDataController();
 
   final DeviceInfoController _deviceInfoController;
+  final GnssAuxiliaryDataController _auxiliaryDataController;
 
   Future<String?> ensureLocationReady() async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -43,11 +49,14 @@ class GnssController {
       throw GnssException(error);
     }
 
+    final auxiliaryDataFuture = _auxiliaryDataController.captureAuxiliaryData();
+
     final position = await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.best,
       timeLimit: const Duration(seconds: 15),
     );
 
+    final auxiliaryData = await auxiliaryDataFuture;
     final deviceInfo = await _deviceInfoController.readDeviceInfo();
     final measuredAt = DateTime.now().toUtc();
     final timestamp = position.timestamp.toUtc();
@@ -70,14 +79,12 @@ class GnssController {
       speed: position.speed,
       offsetSeconds: offsetSeconds,
       note: note,
-      // Geolocator liefert diese Roh-GNSS-Werte auf Android nicht direkt.
-      // Die Felder bleiben bewusst in der JSON-Struktur, damit sie später
-      // durch einen Android-GNSS-Status-Channel ergänzt werden können.
-      visibleSatellites: null,
-      usedSatellites: null,
-      cn0DbHz: null,
-      hdop: null,
-      pdop: null,
+      visibleSatellites: auxiliaryData.visibleSatellites,
+      usedSatellites: auxiliaryData.usedSatellites,
+      cn0DbHz: auxiliaryData.cn0DbHz,
+      hdop: auxiliaryData.hdop,
+      pdop: auxiliaryData.pdop,
+      vdop: auxiliaryData.vdop,
     );
   }
 }

@@ -63,6 +63,7 @@ class GnssMeasurement {
     this.cn0DbHz,
     this.hdop,
     this.pdop,
+    this.vdop,
     this.note,
   });
 
@@ -87,6 +88,7 @@ class GnssMeasurement {
   final double? cn0DbHz;
   final double? hdop;
   final double? pdop;
+  final double? vdop;
   final String? note;
 
   GnssMeasurement copyWith({String? note}) {
@@ -112,6 +114,7 @@ class GnssMeasurement {
       cn0DbHz: cn0DbHz,
       hdop: hdop,
       pdop: pdop,
+      vdop: vdop,
       note: note ?? this.note,
     );
   }
@@ -135,6 +138,7 @@ class GnssMeasurement {
         'cn0DbHz': cn0DbHz,
         'hdop': hdop,
         'pdop': pdop,
+        'vdop': vdop,
       };
 }
 
