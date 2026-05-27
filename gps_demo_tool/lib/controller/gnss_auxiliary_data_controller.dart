@@ -39,13 +39,20 @@ class GnssAuxiliaryDataController {
     final nmea = await nmeaSnapshotFuture;
 
     return GnssAuxiliaryData(
-      visibleSatellites: gnss.visibleSatellites ?? nmea.visibleSatellites,
-      usedSatellites: gnss.usedSatellites ?? nmea.usedSatellites,
+      visibleSatellites: _positiveOrNull(nmea.visibleSatellites) ??
+          _positiveOrNull(gnss.visibleSatellites),
+      usedSatellites: _positiveOrNull(nmea.usedSatellites) ??
+          _positiveOrNull(gnss.usedSatellites),
       cn0DbHz: nmea.cn0DbHz,
       hdop: nmea.hdop,
       pdop: nmea.pdop,
       vdop: nmea.vdop,
     );
+  }
+
+  int? _positiveOrNull(int? value) {
+    if (value == null || value <= 0) return null;
+    return value;
   }
 
   Future<_GnssDiagnosticsValues> _readGnssDiagnosticsSnapshot(
@@ -57,12 +64,18 @@ class GnssAuxiliaryDataController {
       );
 
       return _GnssDiagnosticsValues(
-        visibleSatellites: snapshot.totalInView as int?,
-        usedSatellites: snapshot.totalUsedInFix as int?,
+        visibleSatellites: _asIntOrNull(snapshot.totalInView),
+        usedSatellites: _asIntOrNull(snapshot.totalUsedInFix),
       );
     } catch (_) {
       return const _GnssDiagnosticsValues();
     }
+  }
+
+  int? _asIntOrNull(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse('$value');
   }
 
   Future<_NmeaValues> _readNmeaSnapshot(Duration duration) async {
@@ -140,7 +153,10 @@ class _MutableNmeaValues {
       pdop = message.pdop ?? pdop;
       vdop = message.vdop ?? vdop;
     } else if (message is GsvMessage) {
-      visibleSatellites = message.satellitesInView;
+      final satellitesInView = message.satellitesInView;
+      if (satellitesInView != null && satellitesInView > 0) {
+        visibleSatellites = satellitesInView;
+      }
       for (final satellite in message.satellites) {
         final snr = satellite.snr;
         if (snr != null && snr > 0) {
