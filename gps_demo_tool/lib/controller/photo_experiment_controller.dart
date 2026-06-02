@@ -56,6 +56,7 @@ class PhotoExperimentController {
 
   Future<PhotoExperimentRecord> runPhotoExperiment({
     required EnvironmentType environmentType,
+    EnvironmentType Function()? readCurrentEnvironmentType,
     required XFile photo,
     XFile? referencePhoto,
     String? Function()? readCurrentNote,
@@ -98,11 +99,12 @@ class PhotoExperimentController {
       }
 
       final currentNote = _cleanText(readCurrentNote?.call());
+      final currentEnvironmentType = readCurrentEnvironmentType?.call() ?? environmentType;
       onStatus?.call('Messung ${i + 1}/${measurementOffsetsSeconds.length} bei +${offset}s läuft...');
       final measurement = await _gnss.takeMeasurement(
         experimentId: id,
         sequenceNumber: i + 1,
-        environmentType: environmentType,
+        environmentType: currentEnvironmentType,
         offsetSeconds: offset,
         note: currentNote,
       );
@@ -110,6 +112,7 @@ class PhotoExperimentController {
     }
 
     final finalNote = _cleanText(readCurrentNote?.call());
+    final finalEnvironmentType = readCurrentEnvironmentType?.call() ?? environmentType;
     final finalReferenceData = readCurrentReferenceData?.call();
     final normalizedMeasurements = measurements
         .map((measurement) => measurement.copyWith(note: finalNote))
@@ -118,7 +121,7 @@ class PhotoExperimentController {
     final record = PhotoExperimentRecord(
       id: id,
       createdAtUtc: createdAt.toUtc(),
-      environmentType: environmentType,
+      environmentType: finalEnvironmentType,
       note: finalNote,
       referenceData: finalReferenceData?.hasAnyValue == true ? finalReferenceData : null,
       photoPath: savedPhoto.file.path,

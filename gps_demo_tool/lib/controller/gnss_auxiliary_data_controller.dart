@@ -154,7 +154,7 @@ class _MutableNmeaValues {
       vdop = message.vdop ?? vdop;
     } else if (message is GsvMessage) {
       final satellitesInView = message.satellitesInView;
-      if (satellitesInView != null && satellitesInView > 0) {
+      if (satellitesInView > 0) {
         visibleSatellites = satellitesInView;
       }
       for (final satellite in message.satellites) {

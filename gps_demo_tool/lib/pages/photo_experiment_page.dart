@@ -59,6 +59,7 @@ class _PhotoExperimentPageState extends State<PhotoExperimentPage> {
     try {
       final record = await controller.runPhotoExperiment(
         environmentType: environmentType,
+        readCurrentEnvironmentType: () => environmentType,
         photo: selectedPhoto,
         referencePhoto: referencePhoto,
         readCurrentNote: () => noteController.text,
@@ -124,35 +125,6 @@ class _PhotoExperimentPageState extends State<PhotoExperimentPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              DropdownButtonFormField<EnvironmentType>(
-                value: environmentType,
-                decoration: const InputDecoration(
-                  labelText: 'Umgebungstyp',
-                  border: OutlineInputBorder(),
-                ),
-                items: EnvironmentType.values
-                    .map(
-                      (type) => DropdownMenuItem(
-                        value: type,
-                        child: Text(type.label),
-                      ),
-                    )
-                    .toList(),
-                onChanged: isRunning
-                    ? null
-                    : (value) {
-                        if (value != null) {
-                          setState(() => environmentType = value);
-                        }
-                      },
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Referenzdaten',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-
-              const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: isRunning ? null : takePhoto,
                 icon: const Icon(Icons.photo_camera),
@@ -165,7 +137,44 @@ class _PhotoExperimentPageState extends State<PhotoExperimentPage> {
                     ? 'Fotonotiz'
                     : 'Fotonotiz ersetzen'),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                onPressed: canStart ? startExperiment : null,
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('5 GNSS-Messungen starten'),
+              ),
+              if (photo == null && !isRunning) ...[
+                const SizedBox(height: 8),
+                const Text('Start erst möglich, wenn ein Foto hinterlegt ist.'),
+              ],
+              const SizedBox(height: 20),
+              DropdownButtonFormField<EnvironmentType>(
+                value: environmentType,
+                decoration: const InputDecoration(
+                  labelText: 'Umgebungstyp',
+                  helperText: 'Kann auch während der Messung weiter bearbeitet werden.',
+                  border: OutlineInputBorder(),
+                ),
+                items: EnvironmentType.values
+                    .map(
+                      (type) => DropdownMenuItem(
+                        value: type,
+                        child: Text(type.label),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => environmentType = value);
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Referenzdaten',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
@@ -213,16 +222,6 @@ class _PhotoExperimentPageState extends State<PhotoExperimentPage> {
                   border: OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                onPressed: canStart ? startExperiment : null,
-                icon: const Icon(Icons.play_arrow),
-                label: const Text('5 GNSS-Messungen starten'),
-              ),
-              if (photo == null && !isRunning) ...[
-                const SizedBox(height: 8),
-                const Text('Start erst möglich, wenn ein Foto hinterlegt ist.'),
-              ],
               const SizedBox(height: 20),
               Card(
                 child: Padding(
