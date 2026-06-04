@@ -3,3 +3,57 @@
 /workspace.xml
 # Editor-based HTTP Client requests
 /httpRequests/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtuelle Umgebungen
+.venv/
+venv/
+env/
+
+# IDEs / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Systemdateien
+.DS_Store
+Thumbs.db
+
+# Lokale Umgebungsdateien
+.env
+.env.*
+
+# Python Build / Cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# Projektdaten und Ergebnisse ignorieren,
+# aber Ordnerstruktur über .gitkeep behalten
+data/*
+!data/.gitkeep
+!data/stadtwald/
+!data/stadtwald/.gitkeep
+!data/biosphaerenreservat/
+!data/biosphaerenreservat/.gitkeep
+
+results/*
+!results/.gitkeep
+!results/tables/
+!results/tables/.gitkeep
+!results/plots/
+!results/plots/.gitkeep
+!results/maps/
+!results/maps/.gitkeep
+!results/report/
+!results/report/.gitkeep
