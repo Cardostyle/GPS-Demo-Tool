@@ -12,9 +12,9 @@ String utcTimestampForFile(DateTime dateTime) =>
     dateTime.toUtc().toIso8601String().replaceAll(':', '-');
 
 enum EnvironmentType {
-  openArea('freie Fläche'),
+  openArea('freie Flaeche'),
   path('Weg'),
-  underTrees('unter Bäumen');
+  underTrees('unter Baeumen');
 
   const EnvironmentType(this.label);
   final String label;
