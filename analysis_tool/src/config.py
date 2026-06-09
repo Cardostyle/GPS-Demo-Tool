@@ -9,7 +9,7 @@ AREA_FOLDERS = {
 
 ENVIRONMENT_ALIASES = {
     "freie fläche": "freie Fläche",
-    "freie Flaeche": "freie Fläche",
+    "freie flaeche": "freie Fläche",
     "weg": "Weg",
     "unter bäumen": "unter Bäumen",
     "unter baeumen": "unter Bäumen",
