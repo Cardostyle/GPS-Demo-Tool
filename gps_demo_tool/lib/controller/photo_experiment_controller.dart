@@ -16,7 +16,7 @@ class PhotoExperimentController {
         _storage = storageController ?? StorageController(),
         _picker = imagePicker ?? ImagePicker();
 
-  static const List<int> measurementOffsetsSeconds = [0, 10, 30, 60, 120];
+  static const List<int> measurementOffsetsSeconds = [0, 10, 30, 60, 90, 120];
 
   final GnssController _gnss;
   final StorageController _storage;

@@ -16,7 +16,7 @@ class _TrackingPageState extends State<TrackingPage> {
   final intervalController = TextEditingController(text: '1');
   final noteController = TextEditingController();
 
-  EnvironmentType environmentType = EnvironmentType.path;
+  EnvironmentType environmentType = EnvironmentType.mainPath;
   bool isRunning = false;
   String status = 'Noch kein Tracking gestartet.';
   List<GnssMeasurement> measurements = const [];
