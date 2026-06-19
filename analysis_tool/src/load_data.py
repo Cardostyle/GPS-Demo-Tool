@@ -19,6 +19,16 @@ def normalize_environment(value: Any) -> str:
     return ENVIRONMENT_ALIASES.get(lowered, text)
 
 
+def parse_offset_seconds(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        # Unterstützt sowohl JSON-Zahlen als auch Strings wie "90" oder "90.0".
+        return int(float(value))
+    except (TypeError, ValueError):
+        return None
+
+
 def parse_photo_lat_lon(photo_metadata: dict | None) -> tuple[float | None, float | None]:
     if not photo_metadata:
         return None, None
@@ -94,7 +104,8 @@ def load_json_file(path: Path, area_name: str) -> tuple[dict, list[dict], list[d
         })
 
     measurements = data.get("measurements") or []
-    offsets_found = {m.get("offsetSeconds") for m in measurements}
+    offsets_found = {parse_offset_seconds(m.get("offsetSeconds")) for m in measurements}
+    offsets_found.discard(None)
     missing_offsets = [o for o in EXPECTED_OFFSET_SECONDS if o not in offsets_found]
     if missing_offsets:
         issues.append({
@@ -146,6 +157,8 @@ def load_json_file(path: Path, area_name: str) -> tuple[dict, list[dict], list[d
         if has_photo_geotag:
             distance_to_photo_geotag = distance_meters(lat, lon, photo_lat, photo_lon)
 
+        offset_seconds = parse_offset_seconds(m.get("offsetSeconds"))
+
         measurement_rows.append({
             "file": str(path),
             "experimentId": experiment_id,
@@ -154,7 +167,7 @@ def load_json_file(path: Path, area_name: str) -> tuple[dict, list[dict], list[d
             "environmentType": environment,
             "deviceModel": device_model,
             "createdAtUtc": created_at,
-            "offsetSeconds": m.get("offsetSeconds"),
+            "offsetSeconds": offset_seconds,
             "sequenceNumber": m.get("sequenceNumber"),
             "latitude": float(lat),
             "longitude": float(lon),

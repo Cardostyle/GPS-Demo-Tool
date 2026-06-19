@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import pandas as pd
 
+from src.config import FOREST_ENVIRONMENTS, OPEN_ENVIRONMENTS, URBAN_ENVIRONMENTS
+
 
 def summarize_group(df: pd.DataFrame, group_cols: list[str], value_col: str = "distanceToReferenceMeters") -> pd.DataFrame:
     valid = df.dropna(subset=[value_col]).copy()
@@ -49,9 +51,13 @@ def add_environment_comparison_group(df: pd.DataFrame) -> pd.DataFrame:
     enriched = df.copy()
 
     def classify(env: str) -> str:
-        if env == "freie Fläche":
-            return "freie Fläche"
-        return "Waldumgebung"
+        if env in OPEN_ENVIRONMENTS:
+            return "Freie Fläche"
+        if env in FOREST_ENVIRONMENTS:
+            return "Waldumgebung"
+        if env in URBAN_ENVIRONMENTS:
+            return "Urban"
+        return "Sonstige / unbekannt"
 
     enriched["environmentComparison"] = enriched["environmentType"].apply(classify)
     return enriched

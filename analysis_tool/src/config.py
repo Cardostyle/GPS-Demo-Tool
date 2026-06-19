@@ -1,21 +1,27 @@
 from pathlib import Path
 
-EXPECTED_OFFSET_SECONDS = [0, 10, 30, 60, 120]
+# Erwartete Zeitabstände der Foto-GNSS-Messungen.
+EXPECTED_OFFSET_SECONDS = [0, 10, 30, 60, 90, 120]
 
 AREA_FOLDERS = {
     "stadtwald": "Stadtwald",
     "biosphaerenreservat": "Biosphärenreservat",
 }
 
+# Kanonische Namen passend zu den Umgebungstypen in der App.
+# Zusätzlich bleiben alte Schreibweisen aus bisherigen Datensätzen auswertbar.
 ENVIRONMENT_ALIASES = {
-    "freie fläche": "freie Fläche",
-    "freie flaeche": "freie Fläche",
-    "weg": "Weg",
-    "unter bäumen": "unter Bäumen",
-    "unter baeumen": "unter Bäumen",
+    "freie fläche": "Freie Fläche",
+    "freie flaeche": "Freie Fläche",
+    "freifläche": "Freie Fläche",
+    "freiflaeche": "Freie Fläche",
 }
 
-# Für F6: Waldumgebung vs. offene Fläche.
-# Kann später leicht erweitert werden.
-OPEN_ENVIRONMENTS = {"freie Fläche"}
-FOREST_ENVIRONMENTS = {"Weg", "unter Bäumen"}
+# Für F6: Vergleichsgruppen.
+OPEN_ENVIRONMENTS = {"Freie Fläche"}
+FOREST_ENVIRONMENTS = {
+    "Hauptweg (offenes Blätterdach)",
+    "Trampelpfad (geschlossenes Blätterdach)",
+    "Unter Bäumen",
+}
+URBAN_ENVIRONMENTS = {"Urban"}
