@@ -6,7 +6,7 @@ from typing import Any
 
 import pandas as pd
 
-from src.config import AREA_FOLDERS, ENVIRONMENT_ALIASES, EXPECTED_OFFSET_SECONDS
+from src.config import AREA_FOLDERS, ENVIRONMENT_ALIASES, EXPECTED_OFFSET_SECONDS, REFERENCE_DISTANCE_WARNING_METERS
 from src.geo_utils import distance_meters, is_valid_lat_lon
 
 
@@ -135,6 +135,7 @@ def load_json_file(path: Path, area_name: str) -> tuple[dict, list[dict], list[d
     }
 
     measurement_rows: list[dict] = []
+    reference_distances: list[float] = []
 
     for m in measurements:
         lat = m.get("latitude")
@@ -152,6 +153,8 @@ def load_json_file(path: Path, area_name: str) -> tuple[dict, list[dict], list[d
         distance_to_reference = None
         if has_valid_reference:
             distance_to_reference = distance_meters(lat, lon, ref_lat, ref_lon)
+            if distance_to_reference is not None:
+                reference_distances.append(distance_to_reference)
 
         distance_to_photo_geotag = None
         if has_photo_geotag:
@@ -194,8 +197,40 @@ def load_json_file(path: Path, area_name: str) -> tuple[dict, list[dict], list[d
             "distanceToPhotoGeotagMeters": distance_to_photo_geotag,
         })
 
+    if reference_distances:
+        average_distance_to_reference = sum(reference_distances) / len(reference_distances)
+        if average_distance_to_reference > REFERENCE_DISTANCE_WARNING_METERS:
+            details = (
+                f"averageDistanceToReferenceMeters={average_distance_to_reference:.3f}, "
+                f"thresholdMeters={REFERENCE_DISTANCE_WARNING_METERS:g}, "
+                f"measurementCount={len(reference_distances)}, "
+                f"maxDistanceToReferenceMeters={max(reference_distances):.3f}, "
+                f"referenceLatitude={ref_lat}, referenceLongitude={ref_lon}"
+            )
+            issues.append({
+                "file": str(path),
+                "experimentId": experiment_id,
+                "issue": "Durchschnittlicher Abstand mehr als 100 m vom Referenzpunkt entfernt",
+                "details": details,
+            })
+
     return experiment_row, measurement_rows, issues
 
+def reference_point_key(row: dict) -> tuple[float | None, float | None, float | str | None] | None:
+    if not row.get("hasValidReference"):
+        return None
+
+    altitude = row.get("referenceAltitude")
+    try:
+        altitude_key = round(float(altitude), 3) if altitude is not None else None
+    except (TypeError, ValueError):
+        altitude_key = str(altitude)
+
+    return (
+        round(float(row["referenceLatitude"]), 7),
+        round(float(row["referenceLongitude"]), 7),
+        altitude_key,
+    )
 
 def load_all_experiments(data_dir: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     experiment_rows: list[dict] = []
