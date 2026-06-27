@@ -28,5 +28,5 @@ URBAN_ENVIRONMENTS = {"Urban"}
 # Schwelle für Datenqualitäts-Hinweise: Wenn der durchschnittliche Abstand
 # aller gültigen Messungen eines Experiments zum Referenzpunkt größer ist,
 # wird der Fall im Report protokolliert.
-REFERENCE_DISTANCE_WARNING_METERS = 100.0
+REFERENCE_DISTANCE_WARNING_METERS = 250.0
 
