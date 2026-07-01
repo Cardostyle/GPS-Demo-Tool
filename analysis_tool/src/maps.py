@@ -20,7 +20,6 @@ def _add_measurement_points(m: folium.Map, df: pd.DataFrame) -> None:
         popup = (
             f"<b>Messung</b><br>"
             f"Experiment: {row.get('experimentId')}<br>"
-            f"Gebiet: {row.get('area')}<br>"
             f"Umgebung: {row.get('environmentType')}<br>"
             f"Gerät: {row.get('deviceModel')}<br>"
             f"Zeitabstand: {row.get('offsetSeconds')} s<br>"
@@ -52,7 +51,6 @@ def _add_reference_points(m: folium.Map, df: pd.DataFrame) -> None:
         popup = (
             f"<b>Referenzpunkt</b><br>"
             f"Experiment: {row.get('experimentId')}<br>"
-            f"Gebiet: {row.get('area')}<br>"
             f"Umgebung: {row.get('environmentType')}"
         )
 
@@ -74,8 +72,8 @@ def _add_photo_geotags(m: folium.Map, df: pd.DataFrame) -> None:
         popup = (
             f"<b>Foto-Geotag</b><br>"
             f"Experiment: {row.get('experimentId')}<br>"
-            f"Gebiet: {row.get('area')}<br>"
-            f"Umgebung: {row.get('environmentType')}"
+            f"Umgebung: {row.get('environmentType')}<br>"
+            f"Gerät: {row.get('deviceModel')}"
         )
 
         folium.Marker(
@@ -96,7 +94,6 @@ def _add_mean_points(m: folium.Map, df: pd.DataFrame) -> None:
         popup = (
             f"<b>Mittelwert der Messpunkte</b><br>"
             f"Experiment: {experiment_id}<br>"
-            f"Gebiet: {area}<br>"
             f"Umgebung: {environment}<br>"
             f"Gerät: {device}<br>"
             f"Anzahl Messungen: {len(group)}"
