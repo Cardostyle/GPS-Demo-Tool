@@ -94,12 +94,12 @@ def run_all_analyses(measurements_df: pd.DataFrame, experiments_df: pd.DataFrame
         "distanceToReferenceMeters",
     ).sort_values("mittelwertMeter")
 
-    # F4: Foto-Geotag vs. direkte GNSS-Messung
+    # F4: Foto-Geotag vs. Referenzdaten
     f4_photo_geotags = summarize_group(
         df,
-        ["environmentType", "offsetSeconds"],
+        ["environmentType"],
         "distanceToPhotoGeotagMeters",
-    ).sort_values(["environmentType", "offsetSeconds"])
+    ).sort_values(["environmentType"])
 
     f4_photo_geotags_overall = summarize_group(
         df,

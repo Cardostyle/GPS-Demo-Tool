@@ -157,8 +157,8 @@ def load_json_file(path: Path, area_name: str) -> tuple[dict, list[dict], list[d
                 reference_distances.append(distance_to_reference)
 
         distance_to_photo_geotag = None
-        if has_photo_geotag:
-            distance_to_photo_geotag = distance_meters(lat, lon, photo_lat, photo_lon)
+        if has_photo_geotag and has_valid_reference:
+            distance_to_photo_geotag = distance_meters(photo_lat, photo_lon, ref_lat, ref_lon)
 
         offset_seconds = parse_offset_seconds(m.get("offsetSeconds"))
 

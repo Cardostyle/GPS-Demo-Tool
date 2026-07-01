@@ -103,8 +103,8 @@ def create_all_plots(tables: dict[str, pd.DataFrame], measurements_df: pd.DataFr
         tables["F4_foto_geotags_nach_geraet"],
         "deviceModel",
         "mittelwertMeter",
-        "F4: Mittlere Abweichung zwischen Foto-Geotag und GNSS-Messung",
-        "Mittlere Abweichung [m]",
+        "F4: Mittlere Abweichung zwischen Foto-Geotag und Referenzdaten",
+        "Mittlere Abweichung zur Referenz [m]",
         output_dir / "F4_foto_geotags.png",
     )
 
