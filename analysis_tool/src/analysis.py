@@ -2,11 +2,95 @@ from __future__ import annotations
 
 import pandas as pd
 
-from src.config import FOREST_ENVIRONMENTS, OPEN_ENVIRONMENTS, URBAN_ENVIRONMENTS
+from src.config import AREA_FOLDERS, FOREST_ENVIRONMENTS, OPEN_ENVIRONMENTS, URBAN_ENVIRONMENTS
+
+
+GNSS_QUALITY_METRICS = {
+    "visibleSatellites": {
+        "mean": "mittlereSichtbareSatelliten",
+        "available": "vorhandeneSichtbareSatellitenWerte",
+        "missing": "fehlendeSichtbareSatellitenWerte",
+    },
+    "usedSatellites": {
+        "mean": "mittlereGenutzteSatelliten",
+        "available": "vorhandeneGenutzteSatellitenWerte",
+        "missing": "fehlendeGenutzteSatellitenWerte",
+    },
+    "cn0DbHz": {
+        "mean": "mittlererCn0DbHz",
+        "available": "vorhandeneCn0Werte",
+        "missing": "fehlendeCn0Werte",
+    },
+    "hdop": {
+        "mean": "mittlererHdop",
+        "available": "vorhandeneHdopWerte",
+        "missing": "fehlendeHdopWerte",
+    },
+    "pdop": {
+        "mean": "mittlererPdop",
+        "available": "vorhandenePdopWerte",
+        "missing": "fehlendePdopWerte",
+    },
+}
+
+
+def summarize_gnss_quality(df: pd.DataFrame, group_cols: list[str]) -> pd.DataFrame:
+    """Fasst GNSS-Qualitätswerte unabhängig von vorhandenen Referenzdaten zusammen.
+
+    Neben den Mittelwerten werden je Kennzahl die vorhandenen und fehlenden
+    Werte gezählt. So bleiben HDOP, PDOP, C/N0 und Satellitendaten auch dann
+    sichtbar, wenn für eine Messung keine gültige Referenzdistanz vorliegt.
+    """
+    output_columns = list(group_cols) + ["anzahlMessungen"]
+    for names in GNSS_QUALITY_METRICS.values():
+        output_columns.extend([names["mean"], names["available"], names["missing"]])
+
+    if df.empty or any(col not in df.columns for col in group_cols):
+        return pd.DataFrame(columns=output_columns)
+
+    working = df.copy()
+    for metric in GNSS_QUALITY_METRICS:
+        if metric not in working.columns:
+            working[metric] = pd.NA
+        working[metric] = pd.to_numeric(working[metric], errors="coerce")
+
+    rows: list[dict] = []
+    group_key = group_cols[0] if len(group_cols) == 1 else group_cols
+    for group_values, group in working.groupby(group_key, dropna=False):
+        if len(group_cols) == 1:
+            group_values = (group_values,)
+
+        row = dict(zip(group_cols, group_values))
+        row["anzahlMessungen"] = len(group)
+
+        for metric, names in GNSS_QUALITY_METRICS.items():
+            values = group[metric]
+            row[names["mean"]] = values.mean()
+            row[names["available"]] = int(values.notna().sum())
+            row[names["missing"]] = int(values.isna().sum())
+
+        rows.append(row)
+
+    return pd.DataFrame(rows, columns=output_columns)
 
 
 def summarize_group(df: pd.DataFrame, group_cols: list[str], value_col: str = "distanceToReferenceMeters") -> pd.DataFrame:
-    valid = df.dropna(subset=[value_col]).copy()
+    valid = df.copy()
+    numeric_columns = [
+        value_col,
+        "androidAccuracyMeters",
+        "visibleSatellites",
+        "usedSatellites",
+        "cn0DbHz",
+        "hdop",
+        "pdop",
+    ]
+    for column in numeric_columns:
+        if column not in valid.columns:
+            valid[column] = pd.NA
+        valid[column] = pd.to_numeric(valid[column], errors="coerce")
+
+    valid = valid.dropna(subset=[value_col])
 
     if valid.empty:
         return pd.DataFrame(columns=group_cols + [
@@ -149,6 +233,27 @@ def run_all_analyses(measurements_df: pd.DataFrame, experiments_df: pd.DataFrame
         "distanceToReferenceMeters",
     ).sort_values(["area", "environmentType", "offsetSeconds"])
 
+    # GNSS-Qualitätsdaten: HDOP, PDOP, C/N0 und Satellitenwerte.
+    # Diese Auswertungen hängen bewusst nicht von einer Referenzdistanz ab.
+    gnss_quality_by_device = summarize_gnss_quality(
+        df,
+        ["deviceModel"],
+    ).sort_values("deviceModel")
+
+    gnss_quality_by_environment = summarize_gnss_quality(
+        df,
+        ["environmentType"],
+    ).sort_values("environmentType")
+
+    # Mit "Waldtyp" ist hier das Untersuchungsgebiet gemeint:
+    # Stadtwald oder Biosphärenreservat – nicht die Vegetations-/Wegklasse.
+    forest_measurements = df[df["area"].isin(AREA_FOLDERS.values())].copy()
+    forest_measurements["forestType"] = forest_measurements["area"]
+    gnss_quality_by_forest_type = summarize_gnss_quality(
+        forest_measurements,
+        ["forestType"],
+    ).sort_values("forestType")
+
     # F8: Stadtwald vs. Biosphärenreservat
     f8_area = summarize_group(
         df,
@@ -205,5 +310,8 @@ def run_all_analyses(measurements_df: pd.DataFrame, experiments_df: pd.DataFrame
         "F7_referenzvergleich_nach_zeit": f7_reference_by_offset,
         "F8_gebietvergleich": f8_area,
         "F8_gebiet_und_umgebung": f8_area_environment,
+        "GNSS_qualitaet_nach_handy": gnss_quality_by_device,
+        "GNSS_qualitaet_nach_umgebungstyp": gnss_quality_by_environment,
+        "GNSS_qualitaet_nach_waldtyp": gnss_quality_by_forest_type,
         "zusatz_stabilitaet_ohne_referenz": stability_by_experiment,
     }

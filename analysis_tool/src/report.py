@@ -21,6 +21,9 @@ TABLE_TITLES = {
     "F7_referenzvergleich_nach_zeit": "F7: Vergleich mit Referenzdaten nach Zeitabstand",
     "F8_gebietvergleich": "F8: Stadtwald vs. Biosphärenreservat",
     "F8_gebiet_und_umgebung": "F8: Gebiet und Umgebung",
+    "GNSS_qualitaet_nach_handy": "GNSS-Qualität: HDOP, PDOP, C/N₀ und Satellitendaten nach Handy",
+    "GNSS_qualitaet_nach_umgebungstyp": "GNSS-Qualität: HDOP, PDOP, C/N₀ und Satellitendaten nach Umgebungstyp",
+    "GNSS_qualitaet_nach_waldtyp": "GNSS-Qualität: HDOP, PDOP, C/N₀ und Satellitendaten nach Waldgebiet (Stadtwald / Biosphärenreservat)",
     "zusatz_stabilitaet_ohne_referenz": "Zusatz: Stabilität der Messpunkte ohne Referenzdaten",
 }
 
