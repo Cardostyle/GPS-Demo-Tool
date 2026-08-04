@@ -7,7 +7,7 @@ from typing import Any
 import pandas as pd
 
 from src.config import AREA_FOLDERS, ENVIRONMENT_ALIASES, EXPECTED_OFFSET_SECONDS, REFERENCE_DISTANCE_WARNING_METERS
-from src.geo_utils import distance_meters, is_valid_lat_lon
+from src.geo_utils import distance_3d_meters, distance_meters, is_valid_lat_lon, optional_float
 
 
 def normalize_environment(value: Any) -> str:
@@ -20,13 +20,10 @@ def normalize_environment(value: Any) -> str:
 
 
 def parse_offset_seconds(value: Any) -> int | None:
-    if value is None:
+    number = optional_float(value)
+    if number is None:
         return None
-    try:
-        # Unterstützt sowohl JSON-Zahlen als auch Strings wie "90" oder "90.0".
-        return int(float(value))
-    except (TypeError, ValueError):
-        return None
+    return int(number)
 
 
 def parse_photo_lat_lon(photo_metadata: dict | None) -> tuple[float | None, float | None]:
@@ -60,6 +57,37 @@ def parse_photo_lat_lon(photo_metadata: dict | None) -> tuple[float | None, floa
     return None, None
 
 
+def parse_photo_altitude(photo_metadata: dict | None) -> float | None:
+    """Liest die Foto-Höhe aus direkten Feldern oder EXIF-GPSAltitude.
+
+    ``GPSAltitudeRef=1`` kennzeichnet eine Höhe unterhalb des Meeresspiegels.
+    Rationale EXIF-Werte wie ``14899/100`` werden unterstützt.
+    """
+    if not photo_metadata:
+        return None
+
+    direct_altitude = optional_float(photo_metadata.get("altitude"))
+    if direct_altitude is not None:
+        return direct_altitude
+
+    lat_long = photo_metadata.get("latLong")
+    if isinstance(lat_long, dict):
+        lat_long_altitude = optional_float(lat_long.get("altitude") or lat_long.get("alt"))
+        if lat_long_altitude is not None:
+            return lat_long_altitude
+
+    attributes = photo_metadata.get("attributes") or {}
+    altitude = optional_float(attributes.get("GPSAltitude"))
+    if altitude is None:
+        return None
+
+    altitude_ref = optional_float(attributes.get("GPSAltitudeRef"))
+    if altitude_ref == 1:
+        altitude = -abs(altitude)
+
+    return altitude
+
+
 def load_json_file(path: Path, area_name: str) -> tuple[dict, list[dict], list[dict]]:
     issues: list[dict] = []
 
@@ -75,9 +103,10 @@ def load_json_file(path: Path, area_name: str) -> tuple[dict, list[dict], list[d
     reference = data.get("referenceData") or {}
     ref_lat = reference.get("latitude")
     ref_lon = reference.get("longitude")
-    ref_alt = reference.get("altitude")
+    ref_alt = optional_float(reference.get("altitude"))
 
     has_valid_reference = is_valid_lat_lon(ref_lat, ref_lon)
+    has_reference_altitude = ref_alt is not None
     if reference and not has_valid_reference:
         issues.append({
             "file": str(path),
@@ -93,7 +122,17 @@ def load_json_file(path: Path, area_name: str) -> tuple[dict, list[dict], list[d
             "details": "referenceData fehlt oder ist null",
         })
 
-    photo_lat, photo_lon = parse_photo_lat_lon(data.get("photoMetadata"))
+    if has_valid_reference and not has_reference_altitude:
+        issues.append({
+            "file": str(path),
+            "experimentId": experiment_id,
+            "issue": "Keine gültige Referenzhöhe",
+            "details": f"referenceData.altitude={reference.get('altitude')}",
+        })
+
+    photo_metadata = data.get("photoMetadata")
+    photo_lat, photo_lon = parse_photo_lat_lon(photo_metadata)
+    photo_alt = parse_photo_altitude(photo_metadata)
     has_photo_geotag = is_valid_lat_lon(photo_lat, photo_lon)
     if not has_photo_geotag:
         issues.append({
@@ -115,6 +154,24 @@ def load_json_file(path: Path, area_name: str) -> tuple[dict, list[dict], list[d
             "details": ",".join(map(str, missing_offsets)),
         })
 
+    photo_distance_to_reference = None
+    photo_distance_to_reference_3d = None
+    photo_altitude_difference = None
+    photo_absolute_altitude_difference = None
+    if has_photo_geotag and has_valid_reference:
+        photo_distance_to_reference = distance_meters(photo_lat, photo_lon, ref_lat, ref_lon)
+        photo_distance_to_reference_3d = distance_3d_meters(
+            photo_lat,
+            photo_lon,
+            photo_alt,
+            ref_lat,
+            ref_lon,
+            ref_alt,
+        )
+        if photo_alt is not None and ref_alt is not None:
+            photo_altitude_difference = photo_alt - ref_alt
+            photo_absolute_altitude_difference = abs(photo_altitude_difference)
+
     experiment_row = {
         "file": str(path),
         "experimentId": experiment_id,
@@ -128,10 +185,16 @@ def load_json_file(path: Path, area_name: str) -> tuple[dict, list[dict], list[d
         "referenceLongitude": float(ref_lon) if has_valid_reference else None,
         "referenceAltitude": ref_alt,
         "hasValidReference": has_valid_reference,
+        "hasReferenceAltitude": has_reference_altitude,
         "photoLatitude": photo_lat if has_photo_geotag else None,
         "photoLongitude": photo_lon if has_photo_geotag else None,
+        "photoAltitude": photo_alt,
         "hasPhotoGeotag": has_photo_geotag,
-        "photoOriginalDate": (data.get("photoMetadata") or {}).get("originalDate"),
+        "distanceToPhotoGeotagMeters": photo_distance_to_reference,
+        "distanceToPhotoGeotag3dMeters": photo_distance_to_reference_3d,
+        "photoAltitudeDifferenceToReferenceMeters": photo_altitude_difference,
+        "absolutePhotoAltitudeDifferenceToReferenceMeters": photo_absolute_altitude_difference,
+        "photoOriginalDate": (photo_metadata or {}).get("originalDate"),
     }
 
     measurement_rows: list[dict] = []
@@ -150,15 +213,29 @@ def load_json_file(path: Path, area_name: str) -> tuple[dict, list[dict], list[d
             })
             continue
 
+        altitude = optional_float(m.get("altitude"))
+        altitude_accuracy = optional_float(m.get("altitudeAccuracyMeters"))
+
         distance_to_reference = None
+        distance_to_reference_3d = None
+        altitude_difference_to_reference = None
+        absolute_altitude_difference_to_reference = None
         if has_valid_reference:
             distance_to_reference = distance_meters(lat, lon, ref_lat, ref_lon)
             if distance_to_reference is not None:
                 reference_distances.append(distance_to_reference)
 
-        distance_to_photo_geotag = None
-        if has_photo_geotag and has_valid_reference:
-            distance_to_photo_geotag = distance_meters(photo_lat, photo_lon, ref_lat, ref_lon)
+            distance_to_reference_3d = distance_3d_meters(
+                lat,
+                lon,
+                altitude,
+                ref_lat,
+                ref_lon,
+                ref_alt,
+            )
+            if altitude is not None and ref_alt is not None:
+                altitude_difference_to_reference = altitude - ref_alt
+                absolute_altitude_difference_to_reference = abs(altitude_difference_to_reference)
 
         offset_seconds = parse_offset_seconds(m.get("offsetSeconds"))
 
@@ -174,27 +251,36 @@ def load_json_file(path: Path, area_name: str) -> tuple[dict, list[dict], list[d
             "sequenceNumber": m.get("sequenceNumber"),
             "latitude": float(lat),
             "longitude": float(lon),
-            "altitude": m.get("altitude"),
+            "altitude": altitude,
             "timestampUtc": m.get("timestampUtc"),
             "measuredAtUtc": m.get("measuredAtUtc"),
-            "androidAccuracyMeters": m.get("locationAccuracyMeters"),
-            "altitudeAccuracyMeters": m.get("altitudeAccuracyMeters"),
-            "heading": m.get("heading"),
-            "speed": m.get("speed"),
-            "visibleSatellites": m.get("visibleSatellites"),
-            "usedSatellites": m.get("usedSatellites"),
-            "cn0DbHz": m.get("cn0DbHz"),
-            "hdop": m.get("hdop"),
-            "pdop": m.get("pdop"),
-            "vdop": m.get("vdop"),
+            "androidAccuracyMeters": optional_float(m.get("locationAccuracyMeters")),
+            "altitudeAccuracyMeters": altitude_accuracy,
+            "heading": optional_float(m.get("heading")),
+            "speed": optional_float(m.get("speed")),
+            "visibleSatellites": optional_float(m.get("visibleSatellites")),
+            "usedSatellites": optional_float(m.get("usedSatellites")),
+            "cn0DbHz": optional_float(m.get("cn0DbHz")),
+            "hdop": optional_float(m.get("hdop")),
+            "pdop": optional_float(m.get("pdop")),
+            "vdop": optional_float(m.get("vdop")),
             "referenceLatitude": float(ref_lat) if has_valid_reference else None,
             "referenceLongitude": float(ref_lon) if has_valid_reference else None,
+            "referenceAltitude": ref_alt,
             "hasValidReference": has_valid_reference,
+            "hasReferenceAltitude": has_reference_altitude,
             "distanceToReferenceMeters": distance_to_reference,
+            "distanceToReference3dMeters": distance_to_reference_3d,
+            "altitudeDifferenceToReferenceMeters": altitude_difference_to_reference,
+            "absoluteAltitudeDifferenceToReferenceMeters": absolute_altitude_difference_to_reference,
             "photoLatitude": photo_lat if has_photo_geotag else None,
             "photoLongitude": photo_lon if has_photo_geotag else None,
+            "photoAltitude": photo_alt,
             "hasPhotoGeotag": has_photo_geotag,
-            "distanceToPhotoGeotagMeters": distance_to_photo_geotag,
+            "distanceToPhotoGeotagMeters": photo_distance_to_reference,
+            "distanceToPhotoGeotag3dMeters": photo_distance_to_reference_3d,
+            "photoAltitudeDifferenceToReferenceMeters": photo_altitude_difference,
+            "absolutePhotoAltitudeDifferenceToReferenceMeters": photo_absolute_altitude_difference,
         })
 
     if reference_distances:
@@ -216,6 +302,7 @@ def load_json_file(path: Path, area_name: str) -> tuple[dict, list[dict], list[d
 
     return experiment_row, measurement_rows, issues
 
+
 def reference_point_key(row: dict) -> tuple[float | None, float | None, float | str | None] | None:
     if not row.get("hasValidReference"):
         return None
@@ -231,6 +318,7 @@ def reference_point_key(row: dict) -> tuple[float | None, float | None, float | 
         round(float(row["referenceLongitude"]), 7),
         altitude_key,
     )
+
 
 def load_all_experiments(data_dir: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     experiment_rows: list[dict] = []

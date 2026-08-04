@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 from src.config import AREA_FOLDERS, FOREST_ENVIRONMENTS, OPEN_ENVIRONMENTS, URBAN_ENVIRONMENTS
+from src.geo_utils import distance_meters
 
 
 GNSS_QUALITY_METRICS = {
@@ -31,14 +32,105 @@ GNSS_QUALITY_METRICS = {
         "available": "vorhandenePdopWerte",
         "missing": "fehlendePdopWerte",
     },
+    "vdop": {
+        "mean": "mittlererVdop",
+        "available": "vorhandeneVdopWerte",
+        "missing": "fehlendeVdopWerte",
+    },
+    "altitude": {
+        "mean": "mittlereAltitudeMeter",
+        "available": "vorhandeneAltitudeWerte",
+        "missing": "fehlendeAltitudeWerte",
+    },
+    "altitudeAccuracyMeters": {
+        "mean": "mittlereHoehengenauigkeitMeter",
+        "available": "vorhandeneHoehengenauigkeitsWerte",
+        "missing": "fehlendeHoehengenauigkeitsWerte",
+    },
+    "altitudeDifferenceToReferenceMeters": {
+        "mean": "mittlereHoehenabweichungMeter",
+        "available": "vorhandeneHoehenabweichungsWerte",
+        "missing": "fehlendeHoehenabweichungsWerte",
+    },
+    "absoluteAltitudeDifferenceToReferenceMeters": {
+        "mean": "mittlereAbsoluteHoehenabweichungMeter",
+        "available": "vorhandeneAbsoluteHoehenabweichungsWerte",
+        "missing": "fehlendeAbsoluteHoehenabweichungsWerte",
+    },
+    "distanceToReference3dMeters": {
+        "mean": "mittlere3dEntfernungZumReferenzpunktMeter",
+        "available": "vorhandene3dEntfernungsWerte",
+        "missing": "fehlende3dEntfernungsWerte",
+    },
 }
+
+
+HEIGHT_CONTEXTS = {
+    "distanceToReferenceMeters": {
+        "altitude": "altitude",
+        "reference_altitude": "referenceAltitude",
+        "difference": "altitudeDifferenceToReferenceMeters",
+        "absolute_difference": "absoluteAltitudeDifferenceToReferenceMeters",
+        "accuracy": "altitudeAccuracyMeters",
+        "distance_3d": "distanceToReference3dMeters",
+        "horizontal_accuracy": "androidAccuracyMeters",
+    },
+    "distanceToPhotoGeotagMeters": {
+        "altitude": "photoAltitude",
+        "reference_altitude": "referenceAltitude",
+        "difference": "photoAltitudeDifferenceToReferenceMeters",
+        "absolute_difference": "absolutePhotoAltitudeDifferenceToReferenceMeters",
+        "accuracy": None,
+        "distance_3d": "distanceToPhotoGeotag3dMeters",
+        "horizontal_accuracy": None,
+    },
+}
+
+
+BASE_SUMMARY_COLUMNS = [
+    "anzahlMessungen",
+    "mittelwertMeter",
+    "medianMeter",
+    "standardabweichungMeter",
+    "minMeter",
+    "maxMeter",
+    "mittlereAndroidAccuracyMeter",
+    "mittlereSichtbareSatelliten",
+    "mittlereGenutzteSatelliten",
+    "mittlererCn0DbHz",
+    "mittlererHdop",
+    "mittlererPdop",
+    "mittlererVdop",
+]
+
+
+HEIGHT_SUMMARY_COLUMNS = [
+    "mittlereAltitudeMeter",
+    "medianAltitudeMeter",
+    "mittlereReferenzAltitudeMeter",
+    "mittlereHoehenabweichungMeter",
+    "mittlereAbsoluteHoehenabweichungMeter",
+    "medianAbsoluteHoehenabweichungMeter",
+    "standardabweichungHoehenabweichungMeter",
+    "mittlereHoehengenauigkeitMeter",
+    "mittlere3dEntfernungMeter",
+    "median3dEntfernungMeter",
+    "min3dEntfernungMeter",
+    "max3dEntfernungMeter",
+    "vorhandeneHoehenWerte",
+    "fehlendeHoehenWerte",
+    "vorhandene3dEntfernungen",
+    "fehlende3dEntfernungen",
+    "anteil2dInnerhalbAndroidAccuracyProzent",
+    "anteilHoeheInnerhalbAltitudeAccuracyProzent",
+]
 
 
 def summarize_gnss_quality(df: pd.DataFrame, group_cols: list[str]) -> pd.DataFrame:
     """Fasst GNSS-Qualitätswerte unabhängig von vorhandenen Referenzdaten zusammen.
 
     Neben den Mittelwerten werden je Kennzahl die vorhandenen und fehlenden
-    Werte gezählt. So bleiben HDOP, PDOP, C/N0 und Satellitendaten auch dann
+    Werte gezählt. So bleiben HDOP, PDOP, VDOP, C/N0 und Satellitendaten auch dann
     sichtbar, wenn für eine Messung keine gültige Referenzdistanz vorliegt.
     """
     output_columns = list(group_cols) + ["anzahlMessungen"]
@@ -74,9 +166,23 @@ def summarize_gnss_quality(df: pd.DataFrame, group_cols: list[str]) -> pd.DataFr
     return pd.DataFrame(rows, columns=output_columns)
 
 
-def summarize_group(df: pd.DataFrame, group_cols: list[str], value_col: str = "distanceToReferenceMeters") -> pd.DataFrame:
+def _percentage_of_true(values: pd.Series) -> float:
+    valid = values.dropna()
+    if valid.empty:
+        return float("nan")
+    return float(valid.astype(bool).mean() * 100.0)
+
+
+def summarize_group(
+    df: pd.DataFrame,
+    group_cols: list[str],
+    value_col: str = "distanceToReferenceMeters",
+) -> pd.DataFrame:
+    """Fasst Positions-, Höhen- und 3D-Abweichungen für eine Gruppe zusammen."""
     valid = df.copy()
-    numeric_columns = [
+    height_context = HEIGHT_CONTEXTS.get(value_col)
+
+    numeric_columns = {
         value_col,
         "androidAccuracyMeters",
         "visibleSatellites",
@@ -84,51 +190,107 @@ def summarize_group(df: pd.DataFrame, group_cols: list[str], value_col: str = "d
         "cn0DbHz",
         "hdop",
         "pdop",
-    ]
+        "vdop",
+    }
+    if height_context:
+        numeric_columns.update(col for col in height_context.values() if col is not None)
+
     for column in numeric_columns:
         if column not in valid.columns:
             valid[column] = pd.NA
         valid[column] = pd.to_numeric(valid[column], errors="coerce")
 
     valid = valid.dropna(subset=[value_col])
+    output_columns = group_cols + BASE_SUMMARY_COLUMNS + (HEIGHT_SUMMARY_COLUMNS if height_context else [])
 
     if valid.empty:
-        return pd.DataFrame(columns=group_cols + [
-            "anzahlMessungen",
-            "mittelwertMeter",
-            "medianMeter",
-            "standardabweichungMeter",
-            "minMeter",
-            "maxMeter",
-            "mittlereAndroidAccuracyMeter",
-            "mittlereSichtbareSatelliten",
-            "mittlereGenutzteSatelliten",
-            "mittlererCn0DbHz",
-            "mittlererHdop",
-            "mittlererPdop",
-        ])
+        return pd.DataFrame(columns=output_columns)
 
-    result = (
-        valid
-        .groupby(group_cols, dropna=False)
-        .agg(
-            anzahlMessungen=(value_col, "count"),
-            mittelwertMeter=(value_col, "mean"),
-            medianMeter=(value_col, "median"),
-            standardabweichungMeter=(value_col, "std"),
-            minMeter=(value_col, "min"),
-            maxMeter=(value_col, "max"),
-            mittlereAndroidAccuracyMeter=("androidAccuracyMeters", "mean"),
-            mittlereSichtbareSatelliten=("visibleSatellites", "mean"),
-            mittlereGenutzteSatelliten=("usedSatellites", "mean"),
-            mittlererCn0DbHz=("cn0DbHz", "mean"),
-            mittlererHdop=("hdop", "mean"),
-            mittlererPdop=("pdop", "mean"),
-        )
-        .reset_index()
-    )
+    if height_context:
+        altitude_col = height_context["altitude"]
+        absolute_difference_col = height_context["absolute_difference"]
+        accuracy_col = height_context["accuracy"]
+        horizontal_accuracy_col = height_context["horizontal_accuracy"]
 
-    return result
+        valid["_heightAvailable"] = valid[altitude_col].notna()
+        valid["_distance3dAvailable"] = valid[height_context["distance_3d"]].notna()
+
+        if horizontal_accuracy_col:
+            valid["_withinHorizontalAccuracy"] = pd.NA
+            horizontal_mask = valid[value_col].notna() & valid[horizontal_accuracy_col].notna()
+            valid.loc[horizontal_mask, "_withinHorizontalAccuracy"] = (
+                valid.loc[horizontal_mask, value_col]
+                <= valid.loc[horizontal_mask, horizontal_accuracy_col]
+            )
+        else:
+            valid["_withinHorizontalAccuracy"] = pd.NA
+
+        if accuracy_col:
+            valid["_withinAltitudeAccuracy"] = pd.NA
+            altitude_mask = valid[absolute_difference_col].notna() & valid[accuracy_col].notna()
+            valid.loc[altitude_mask, "_withinAltitudeAccuracy"] = (
+                valid.loc[altitude_mask, absolute_difference_col]
+                <= valid.loc[altitude_mask, accuracy_col]
+            )
+        else:
+            valid["_withinAltitudeAccuracy"] = pd.NA
+
+    rows: list[dict] = []
+    group_key = group_cols[0] if len(group_cols) == 1 else group_cols
+    for group_values, group in valid.groupby(group_key, dropna=False):
+        if len(group_cols) == 1:
+            group_values = (group_values,)
+
+        row = dict(zip(group_cols, group_values))
+        main_values = group[value_col]
+        row.update({
+            "anzahlMessungen": int(main_values.count()),
+            "mittelwertMeter": main_values.mean(),
+            "medianMeter": main_values.median(),
+            "standardabweichungMeter": main_values.std(),
+            "minMeter": main_values.min(),
+            "maxMeter": main_values.max(),
+            "mittlereAndroidAccuracyMeter": group["androidAccuracyMeters"].mean(),
+            "mittlereSichtbareSatelliten": group["visibleSatellites"].mean(),
+            "mittlereGenutzteSatelliten": group["usedSatellites"].mean(),
+            "mittlererCn0DbHz": group["cn0DbHz"].mean(),
+            "mittlererHdop": group["hdop"].mean(),
+            "mittlererPdop": group["pdop"].mean(),
+            "mittlererVdop": group["vdop"].mean(),
+        })
+
+        if height_context:
+            altitude_values = group[height_context["altitude"]]
+            reference_altitude_values = group[height_context["reference_altitude"]]
+            difference_values = group[height_context["difference"]]
+            absolute_difference_values = group[height_context["absolute_difference"]]
+            distance_3d_values = group[height_context["distance_3d"]]
+            accuracy_col = height_context["accuracy"]
+
+            row.update({
+                "mittlereAltitudeMeter": altitude_values.mean(),
+                "medianAltitudeMeter": altitude_values.median(),
+                "mittlereReferenzAltitudeMeter": reference_altitude_values.mean(),
+                "mittlereHoehenabweichungMeter": difference_values.mean(),
+                "mittlereAbsoluteHoehenabweichungMeter": absolute_difference_values.mean(),
+                "medianAbsoluteHoehenabweichungMeter": absolute_difference_values.median(),
+                "standardabweichungHoehenabweichungMeter": difference_values.std(),
+                "mittlereHoehengenauigkeitMeter": group[accuracy_col].mean() if accuracy_col else float("nan"),
+                "mittlere3dEntfernungMeter": distance_3d_values.mean(),
+                "median3dEntfernungMeter": distance_3d_values.median(),
+                "min3dEntfernungMeter": distance_3d_values.min(),
+                "max3dEntfernungMeter": distance_3d_values.max(),
+                "vorhandeneHoehenWerte": int(altitude_values.notna().sum()),
+                "fehlendeHoehenWerte": int(altitude_values.isna().sum()),
+                "vorhandene3dEntfernungen": int(distance_3d_values.notna().sum()),
+                "fehlende3dEntfernungen": int(distance_3d_values.isna().sum()),
+                "anteil2dInnerhalbAndroidAccuracyProzent": _percentage_of_true(group["_withinHorizontalAccuracy"]),
+                "anteilHoeheInnerhalbAltitudeAccuracyProzent": _percentage_of_true(group["_withinAltitudeAccuracy"]),
+            })
+
+        rows.append(row)
+
+    return pd.DataFrame(rows, columns=output_columns)
 
 
 def add_environment_comparison_group(df: pd.DataFrame) -> pd.DataFrame:
@@ -145,6 +307,46 @@ def add_environment_comparison_group(df: pd.DataFrame) -> pd.DataFrame:
 
     enriched["environmentComparison"] = enriched["environmentType"].apply(classify)
     return enriched
+
+
+def create_altitude_detail_table(df: pd.DataFrame) -> pd.DataFrame:
+    """Erstellt eine transparente Einzelmessungstabelle für Höhe und 3D-Distanz."""
+    detail_columns = [
+        "area",
+        "experimentId",
+        "measurementId",
+        "environmentType",
+        "deviceModel",
+        "sequenceNumber",
+        "offsetSeconds",
+        "latitude",
+        "longitude",
+        "altitude",
+        "referenceAltitude",
+        "altitudeDifferenceToReferenceMeters",
+        "absoluteAltitudeDifferenceToReferenceMeters",
+        "altitudeAccuracyMeters",
+        "distanceToReferenceMeters",
+        "distanceToReference3dMeters",
+        "androidAccuracyMeters",
+        "hdop",
+        "pdop",
+        "vdop",
+        "visibleSatellites",
+        "usedSatellites",
+        "cn0DbHz",
+    ]
+
+    working = df.copy()
+    for column in detail_columns:
+        if column not in working.columns:
+            working[column] = pd.NA
+
+    return (
+        working[detail_columns]
+        .sort_values(["area", "experimentId", "offsetSeconds", "sequenceNumber"], na_position="last")
+        .reset_index(drop=True)
+    )
 
 
 def run_all_analyses(measurements_df: pd.DataFrame, experiments_df: pd.DataFrame) -> dict[str, pd.DataFrame]:
@@ -178,7 +380,7 @@ def run_all_analyses(measurements_df: pd.DataFrame, experiments_df: pd.DataFrame
         "distanceToReferenceMeters",
     ).sort_values("mittelwertMeter")
 
-    # F4: Foto-Geotag vs. Referenzdaten
+    # F4: Foto-Geotag vs. Referenzdaten – inklusive EXIF-Höhe, sofern vorhanden.
     f4_photo_geotags = summarize_group(
         df,
         ["environmentType"],
@@ -192,7 +394,6 @@ def run_all_analyses(measurements_df: pd.DataFrame, experiments_df: pd.DataFrame
     ).sort_values("mittelwertMeter")
 
     # F5: Genauigkeit aller Smartphone-Messungen unter Praxisbedingungen
-    # Gewünscht: alle Daten unabhängig von Umgebung und Tag.
     f5_all_practical = summarize_group(
         df,
         ["deviceModel"],
@@ -206,7 +407,6 @@ def run_all_analyses(measurements_df: pd.DataFrame, experiments_df: pd.DataFrame
     )
 
     # F6: Einfluss der Waldumgebung im Vergleich zu freien Flächen.
-    # Gewünscht: alle Umgebungstypen vergleichen.
     f6_environment_all_types = summarize_group(
         df,
         ["environmentType"],
@@ -233,7 +433,7 @@ def run_all_analyses(measurements_df: pd.DataFrame, experiments_df: pd.DataFrame
         "distanceToReferenceMeters",
     ).sort_values(["area", "environmentType", "offsetSeconds"])
 
-    # GNSS-Qualitätsdaten: HDOP, PDOP, C/N0 und Satellitenwerte.
+    # GNSS- und Höhenqualitätsdaten: DOP, C/N0, Satelliten, Höhe und 3D-Distanz.
     # Diese Auswertungen hängen bewusst nicht von einer Referenzdistanz ab.
     gnss_quality_by_device = summarize_gnss_quality(
         df,
@@ -268,19 +468,18 @@ def run_all_analyses(measurements_df: pd.DataFrame, experiments_df: pd.DataFrame
     ).sort_values(["area", "mittelwertMeter"])
 
     # Zusatz: Stabilität/Streuung der Messpunkte auch ohne Referenzdaten.
-    # Damit können Experimente ohne Referenz immerhin auf der Karte und über Streuung beschrieben werden.
     stability_rows = []
     for experiment_id, group in df.groupby("experimentId", dropna=False):
         center_lat = group["latitude"].mean()
         center_lon = group["longitude"].mean()
 
         distances = []
-        from src.geo_utils import distance_meters
         for _, row in group.iterrows():
             d = distance_meters(row["latitude"], row["longitude"], center_lat, center_lon)
             if d is not None:
                 distances.append(d)
 
+        altitudes = pd.to_numeric(group.get("altitude"), errors="coerce")
         stability_rows.append({
             "experimentId": experiment_id,
             "area": group["area"].iloc[0],
@@ -289,11 +488,16 @@ def run_all_analyses(measurements_df: pd.DataFrame, experiments_df: pd.DataFrame
             "anzahlMessungen": len(group),
             "mittelpunktLatitude": center_lat,
             "mittelpunktLongitude": center_lon,
+            "mittlereAltitudeMeter": altitudes.mean(),
+            "standardabweichungAltitudeMeter": altitudes.std(),
+            "minAltitudeMeter": altitudes.min(),
+            "maxAltitudeMeter": altitudes.max(),
             "mittlereDistanzZumExperimentMittelpunktMeter": sum(distances) / len(distances) if distances else None,
             "maxDistanzZumExperimentMittelpunktMeter": max(distances) if distances else None,
         })
 
     stability_by_experiment = pd.DataFrame(stability_rows)
+    altitude_details = create_altitude_detail_table(df)
 
     return {
         "F1_zeitabstand": f1_time_offsets,
@@ -313,5 +517,6 @@ def run_all_analyses(measurements_df: pd.DataFrame, experiments_df: pd.DataFrame
         "GNSS_qualitaet_nach_handy": gnss_quality_by_device,
         "GNSS_qualitaet_nach_umgebungstyp": gnss_quality_by_environment,
         "GNSS_qualitaet_nach_waldtyp": gnss_quality_by_forest_type,
+        "zusatz_hoehe_und_3d_einzelmessungen": altitude_details,
         "zusatz_stabilitaet_ohne_referenz": stability_by_experiment,
     }

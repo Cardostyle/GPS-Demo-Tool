@@ -33,8 +33,13 @@ def _add_measurement_points(m: folium.Map, df: pd.DataFrame) -> list[dict[str, s
             f"Umgebung: {row.get('environmentType')}<br>"
             f"Gerät: {row.get('deviceModel')}<br>"
             f"Zeitabstand: {row.get('offsetSeconds')} s<br>"
+            f"Höhe: {row.get('altitude')} m<br>"
+            f"Referenzhöhe: {row.get('referenceAltitude')} m<br>"
+            f"Höhenabweichung: {row.get('altitudeDifferenceToReferenceMeters')} m<br>"
+            f"Höhengenauigkeit: {row.get('altitudeAccuracyMeters')} m<br>"
             f"Android Accuracy: {row.get('androidAccuracyMeters')} m<br>"
-            f"Abweichung Referenz: {row.get('distanceToReferenceMeters')} m"
+            f"Abweichung Referenz (2D): {row.get('distanceToReferenceMeters')} m<br>"
+            f"Abweichung Referenz (3D): {row.get('distanceToReference3dMeters')} m"
         )
 
         marker = folium.CircleMarker(
@@ -72,7 +77,8 @@ def _add_reference_points(m: folium.Map, df: pd.DataFrame) -> list[dict[str, str
         popup = (
             f"<b>Referenzpunkt</b><br>"
             f"Experiment: {row.get('experimentId')}<br>"
-            f"Umgebung: {row.get('environmentType')}"
+            f"Umgebung: {row.get('environmentType')}<br>"
+            f"Referenzhöhe: {row.get('referenceAltitude')} m"
         )
 
         marker = folium.Marker(
@@ -105,7 +111,10 @@ def _add_photo_geotags(m: folium.Map, df: pd.DataFrame) -> list[dict[str, str]]:
             f"<b>Foto-Geotag</b><br>"
             f"Experiment: {row.get('experimentId')}<br>"
             f"Umgebung: {row.get('environmentType')}<br>"
-            f"Gerät: {row.get('deviceModel')}"
+            f"Gerät: {row.get('deviceModel')}<br>"
+            f"Foto-Höhe: {row.get('photoAltitude')} m<br>"
+            f"Abweichung Referenz (2D): {row.get('distanceToPhotoGeotagMeters')} m<br>"
+            f"Abweichung Referenz (3D): {row.get('distanceToPhotoGeotag3dMeters')} m"
         )
 
         marker = folium.Marker(

@@ -81,6 +81,15 @@ def create_all_plots(tables: dict[str, pd.DataFrame], measurements_df: pd.DataFr
         output_dir / "F1_zeitabstand.png",
     )
 
+    save_line_plot(
+        tables["F1_zeitabstand"],
+        "offsetSeconds",
+        "mittlere3dEntfernungMeter",
+        "F1: Mittlere 3D-Abweichung zur Referenz nach Zeitabstand",
+        "Mittlere 3D-Abweichung zur Referenz [m]",
+        output_dir / "F1_zeitabstand_3d.png",
+    )
+
     save_bar_plot(
         tables["F2_umgebungstypen"],
         "environmentType",
@@ -91,12 +100,48 @@ def create_all_plots(tables: dict[str, pd.DataFrame], measurements_df: pd.DataFr
     )
 
     save_bar_plot(
+        tables["F2_umgebungstypen"],
+        "environmentType",
+        "mittlere3dEntfernungMeter",
+        "F2: Mittlere 3D-Abweichung nach Umgebungstyp",
+        "Mittlere 3D-Abweichung zur Referenz [m]",
+        output_dir / "F2_umgebungstypen_3d.png",
+    )
+
+    save_bar_plot(
+        tables["F2_umgebungstypen"],
+        "environmentType",
+        "mittlereAbsoluteHoehenabweichungMeter",
+        "F2: Mittlere absolute Höhenabweichung nach Umgebungstyp",
+        "Mittlere absolute Höhenabweichung [m]",
+        output_dir / "F2_hoehenabweichung_umgebungstypen.png",
+    )
+
+    save_bar_plot(
         tables["F3_geraetemodelle"],
         "deviceModel",
         "mittelwertMeter",
         "F3: Mittlere Abweichung nach Smartphone-Modell",
         "Mittlere Abweichung zur Referenz [m]",
         output_dir / "F3_geraetemodelle.png",
+    )
+
+    save_bar_plot(
+        tables["F3_geraetemodelle"],
+        "deviceModel",
+        "mittlere3dEntfernungMeter",
+        "F3: Mittlere 3D-Abweichung nach Smartphone-Modell",
+        "Mittlere 3D-Abweichung zur Referenz [m]",
+        output_dir / "F3_geraetemodelle_3d.png",
+    )
+
+    save_bar_plot(
+        tables["F3_geraetemodelle"],
+        "deviceModel",
+        "mittlereAbsoluteHoehenabweichungMeter",
+        "F3: Mittlere absolute Höhenabweichung nach Smartphone-Modell",
+        "Mittlere absolute Höhenabweichung [m]",
+        output_dir / "F3_hoehenabweichung_geraetemodelle.png",
     )
 
     save_bar_plot(
@@ -126,6 +171,24 @@ def create_all_plots(tables: dict[str, pd.DataFrame], measurements_df: pd.DataFr
         output_dir / "F8_gebietvergleich.png",
     )
 
+    save_bar_plot(
+        tables["F8_gebietvergleich"],
+        "area",
+        "mittlere3dEntfernungMeter",
+        "F8: Mittlere 3D-Abweichung nach Untersuchungsgebiet",
+        "Mittlere 3D-Abweichung zur Referenz [m]",
+        output_dir / "F8_gebietvergleich_3d.png",
+    )
+
+    save_bar_plot(
+        tables["F8_gebietvergleich"],
+        "area",
+        "mittlereAbsoluteHoehenabweichungMeter",
+        "F8: Mittlere absolute Höhenabweichung nach Untersuchungsgebiet",
+        "Mittlere absolute Höhenabweichung [m]",
+        output_dir / "F8_hoehenabweichung_gebiet.png",
+    )
+
     save_boxplot(
         measurements_df,
         "environmentType",
@@ -142,4 +205,13 @@ def create_all_plots(tables: dict[str, pd.DataFrame], measurements_df: pd.DataFr
         "Verteilung der Referenzabweichung nach Zeitabstand",
         "Abweichung zur Referenz [m]",
         output_dir / "boxplot_zeitabstand.png",
+    )
+
+    save_boxplot(
+        measurements_df,
+        "environmentType",
+        "absoluteAltitudeDifferenceToReferenceMeters",
+        "Verteilung der absoluten Höhenabweichung nach Umgebungstyp",
+        "Absolute Höhenabweichung [m]",
+        output_dir / "boxplot_hoehenabweichung_umgebungstypen.png",
     )
