@@ -20,8 +20,8 @@ ENVIRONMENT_ALIASES = {
 # Für F6: Vergleichsgruppen.
 OPEN_ENVIRONMENTS = {"Freie Fläche"}
 FOREST_ENVIRONMENTS = {
-    "Hauptweg (offenes Blätterdach)",
-    "Trampelpfad (geschlossenes Blätterdach)",
+    "Hauptweg",
+    "Trampelpfad",
     "Unter Bäumen",
 }
 URBAN_ENVIRONMENTS = {"Urban"}

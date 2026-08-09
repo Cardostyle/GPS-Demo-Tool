@@ -227,8 +227,14 @@ def create_all_plots(tables: dict[str, pd.DataFrame], measurements_df: pd.DataFr
         output_dir / "F4_foto_geotags.png",
     )
 
+    f4_photo_vs_zero_plot = tables["F4_foto_vs_0s_nach_geraet"]
+    if "deviceModel" in f4_photo_vs_zero_plot.columns:
+        f4_photo_vs_zero_plot = f4_photo_vs_zero_plot[
+            f4_photo_vs_zero_plot["deviceModel"] != "Gesamt"
+        ]
+
     save_mean_median_bar_plot(
-        tables["F4_foto_vs_0s_nach_geraet"],
+        f4_photo_vs_zero_plot,
         "deviceModel",
         "F4: Foto-Geotag vs. direkte 0-Sekunden-GNSS-Messung",
         "Distanz Foto-Geotag zu 0-s-Messung [m]",

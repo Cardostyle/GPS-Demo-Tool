@@ -408,27 +408,42 @@ def create_photo_vs_zero_second_table(df: pd.DataFrame) -> pd.DataFrame:
     )
     zero = zero.dropna(subset=["distancePhotoToZeroSecondMeters"])
 
-    rows = []
-    for device, group in zero.groupby("deviceModel", dropna=False):
-        values = pd.to_numeric(group["distancePhotoToZeroSecondMeters"], errors="coerce").dropna()
+    def summarize_subset(label: str, group: pd.DataFrame) -> dict:
+        values = pd.to_numeric(
+            group["distancePhotoToZeroSecondMeters"], errors="coerce"
+        ).dropna()
 
         closer = pd.Series(dtype="bool")
         if {"distanceToPhotoGeotagMeters", "distanceToReferenceMeters"}.issubset(group.columns):
             photo_ref = pd.to_numeric(group["distanceToPhotoGeotagMeters"], errors="coerce")
             zero_ref = pd.to_numeric(group["distanceToReferenceMeters"], errors="coerce")
             valid = photo_ref.notna() & zero_ref.notna()
-            closer = (photo_ref[valid] < zero_ref[valid])
+            closer = photo_ref[valid] < zero_ref[valid]
 
-        rows.append({
-            "deviceModel": device,
+        return {
+            "deviceModel": label,
             "anzahlExperimente": int(values.count()),
             "mittelwertMeter": values.mean(),
             "medianMeter": values.median(),
             "standardabweichungMeter": values.std(),
-            "fotoGeotagNaeherAls0SekundenProzent": float(closer.mean() * 100.0) if not closer.empty else float("nan"),
-        })
+            "fotoGeotagNaeherAls0SekundenProzent": (
+                float(closer.mean() * 100.0) if not closer.empty else float("nan")
+            ),
+        }
 
-    return pd.DataFrame(rows).sort_values("deviceModel").reset_index(drop=True)
+    rows = [
+        summarize_subset(str(device), group)
+        for device, group in zero.groupby("deviceModel", dropna=False)
+    ]
+
+    # Gesamtwert über alle gültigen Experimente, damit Mittelwert und Median
+    # nicht aus den beiden Gerätegruppen abgeleitet werden müssen.
+    rows.append(summarize_subset("Gesamt", zero))
+
+    result = pd.DataFrame(rows)
+    device_rows = result[result["deviceModel"] != "Gesamt"].sort_values("deviceModel")
+    total_row = result[result["deviceModel"] == "Gesamt"]
+    return pd.concat([device_rows, total_row], ignore_index=True)
 
 
 def add_photo_reference_extras(table: pd.DataFrame, experiments_df: pd.DataFrame) -> pd.DataFrame:
