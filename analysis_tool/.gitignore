@@ -1,6 +1,7 @@
 ﻿# Default ignored files
 /shelf/
 /workspace.xml
+
 # Editor-based HTTP Client requests
 /httpRequests/
 
@@ -38,22 +39,38 @@ dist/
 build/
 *.egg-info/
 
-# Projektdaten und Ergebnisse ignorieren,
-# aber Ordnerstruktur über .gitkeep behalten
-data/*
+# --------------------------------------------------
+# Projektdaten
+# --------------------------------------------------
+# Alle Inhalte ignorieren, aber Ordnerstruktur
+# über .gitkeep im Repository behalten.
+
+data/**
 !data/.gitkeep
+
 !data/stadtwald/
 !data/stadtwald/.gitkeep
+
 !data/biosphaerenreservat/
 !data/biosphaerenreservat/.gitkeep
 
-results/*
+# --------------------------------------------------
+# Ergebnisse
+# --------------------------------------------------
+# Alle generierten Ergebnisse ignorieren, aber
+# Ordnerstruktur über .gitkeep behalten.
+
+results/**
 !results/.gitkeep
+
 !results/tables/
 !results/tables/.gitkeep
+
 !results/plots/
 !results/plots/.gitkeep
+
 !results/maps/
 !results/maps/.gitkeep
+
 !results/report/
 !results/report/.gitkeep
