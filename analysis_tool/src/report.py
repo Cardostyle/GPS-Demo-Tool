@@ -26,7 +26,34 @@ TABLE_TITLES = {
     "GNSS_qualitaet_nach_waldtyp": "GNSS- und Höhenqualität nach Waldgebiet: Stadtwald / Biosphärenreservat",
     "zusatz_hoehe_und_3d_einzelmessungen": "Zusatz: Höhe, Höhenabweichung und 3D-Entfernung je Einzelmessung",
     "zusatz_stabilitaet_ohne_referenz": "Zusatz: Stabilität der Messpunkte ohne Referenzdaten",
+    "F1_zeitabstand_nach_geraet": "F1: Zeitabstand nach Smartphone",
+    "F2_umgebungstypen_nach_geraet": "F2: Umgebungstyp nach Smartphone",
+    "F4_foto_vs_0s_nach_geraet": "F4: Foto-Geotag vs. direkte 0-Sekunden-Messung",
+    "F8_gebiet_nach_geraet": "F8: Untersuchungsgebiet nach Smartphone",
+    "bericht_datengrundlage": "Datengrundlage und Verfügbarkeit",
+    "bericht_gesamtgenauigkeit": "Gesamtgenauigkeit der direkten Smartphone-Messungen",
+    "bericht_accuracy_radius": "RTK-Referenz innerhalb des Android-Accuracy-Radius",
 }
+
+
+MAIN_REPORT_TABLES = [
+    "bericht_datengrundlage",
+    "bericht_gesamtgenauigkeit",
+    "bericht_accuracy_radius",
+]
+
+
+MAIN_REPORT_PLOTS = [
+    ("F1_zeitabstand.png", "F1: Messdauer – Mittelwert und Median"),
+    ("boxplot_zeitabstand.png", "F1: Verteilung nach Messdauer"),
+    ("F2_umgebungstypen.png", "F2: Umgebungstypen – Mittelwert und Median"),
+    ("boxplot_umgebungstypen.png", "F2: Verteilung nach Umgebungstyp"),
+    ("F3_geraetemodelle.png", "F3: Smartphone-Modelle – Mittelwert und Median"),
+    ("F4_foto_vs_0s.png", "F4: Foto-Geotag vs. direkte 0-Sekunden-Messung"),
+    ("F4_foto_geotags.png", "F4: Foto-Geotag vs. RTK-Referenz"),
+    ("F8_gebietvergleich.png", "F8: Untersuchungsgebiete – Mittelwert und Median"),
+    ("boxplot_gebietvergleich.png", "F8: Verteilung nach Untersuchungsgebiet"),
+]
 
 
 def table_to_html(table: pd.DataFrame, max_rows: int | None = None) -> str:
@@ -82,6 +109,8 @@ def create_html_report(
         ".note { background: #f7f7f7; padding: 12px; border-left: 4px solid #888; }",
         ".table-meta { color: #555; margin-top: -8px; }",
         ".table-wrapper { overflow-x: auto; margin-bottom: 36px; }",
+        ".plot { max-width: 100%; height: auto; border: 1px solid #ddd; margin-bottom: 8px; }",
+        ".figure { margin-bottom: 32px; }",
         "</style>",
         "</head>",
         "<body>",
@@ -93,11 +122,22 @@ def create_html_report(
         "</div>",
     ]
 
+    html_parts.append("<h1>Kernauswertungen für den Ergebnisteil</h1>")
+
+    for key in MAIN_REPORT_TABLES:
+        table = tables.get(key)
+        if table is not None:
+            html_parts.extend(_render_report_table(key, table))
+
+
+    html_parts.append("<h1>Anhang: vollständige Auswertungstabellen</h1>")
     for key, table in tables.items():
+        if key in MAIN_REPORT_TABLES:
+            continue
         html_parts.extend(_render_report_table(key, table))
 
     html_parts.extend([
-        "<h2>Datenqualität</h2>",
+        "<h2>Datenqualität – vollständige Hinweise</h2>",
         f"<p class='table-meta'>Vollständige Tabelle: {len(issues_df)} Zeile(n)</p>",
         "<div class='table-wrapper'>",
         table_to_html(issues_df),

@@ -349,6 +349,168 @@ def create_altitude_detail_table(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+
+def create_data_basis_table(measurements_df: pd.DataFrame, experiments_df: pd.DataFrame) -> pd.DataFrame:
+    """Kompakte Datengrundlage für Kapitel 6.1.
+
+    Die detaillierten Qualitätsauswertungen bleiben separat erhalten; diese Tabelle
+    enthält nur die Kennzahlen, die im Fließtext tatsächlich benötigt werden.
+    """
+    measurement_count = len(measurements_df)
+    experiment_count = len(experiments_df)
+
+    def available_count(df: pd.DataFrame, column: str) -> int:
+        if column not in df.columns:
+            return 0
+        return int(pd.to_numeric(df[column], errors="coerce").notna().sum())
+
+    def percent(count: int, total: int) -> float:
+        return (count / total * 100.0) if total else float("nan")
+
+    photo_count = 0
+    if "hasPhotoGeotag" in experiments_df.columns:
+        photo_count = int(experiments_df["hasPhotoGeotag"].fillna(False).astype(bool).sum())
+
+    rows = [
+        {"Kennzahl": "Foto-Experimente", "Anzahl": experiment_count, "AnteilProzent": 100.0},
+        {"Kennzahl": "Direkte GNSS-Messungen", "Anzahl": measurement_count, "AnteilProzent": 100.0},
+        {"Kennzahl": "Gültige Foto-Geotags", "Anzahl": photo_count, "AnteilProzent": percent(photo_count, experiment_count)},
+    ]
+
+    for label, column in [
+        ("Sichtbare Satelliten", "visibleSatellites"),
+        ("Genutzte Satelliten", "usedSatellites"),
+        ("C/N0", "cn0DbHz"),
+        ("HDOP", "hdop"),
+        ("PDOP", "pdop"),
+    ]:
+        count = available_count(measurements_df, column)
+        rows.append({"Kennzahl": label, "Anzahl": count, "AnteilProzent": percent(count, measurement_count)})
+
+    return pd.DataFrame(rows)
+
+
+def create_photo_vs_zero_second_table(df: pd.DataFrame) -> pd.DataFrame:
+    """Vergleicht je Experiment den Foto-Geotag mit der direkten 0-s-Messung."""
+    zero = df[pd.to_numeric(df.get("offsetSeconds"), errors="coerce").eq(0)].copy()
+    required = ["latitude", "longitude", "photoLatitude", "photoLongitude", "deviceModel"]
+    if zero.empty or any(column not in zero.columns for column in required):
+        return pd.DataFrame(columns=[
+            "deviceModel", "anzahlExperimente", "mittelwertMeter", "medianMeter",
+            "standardabweichungMeter", "fotoGeotagNaeherAls0SekundenProzent",
+        ])
+
+    zero["distancePhotoToZeroSecondMeters"] = zero.apply(
+        lambda row: distance_meters(
+            row["photoLatitude"], row["photoLongitude"], row["latitude"], row["longitude"]
+        ),
+        axis=1,
+    )
+    zero = zero.dropna(subset=["distancePhotoToZeroSecondMeters"])
+
+    rows = []
+    for device, group in zero.groupby("deviceModel", dropna=False):
+        values = pd.to_numeric(group["distancePhotoToZeroSecondMeters"], errors="coerce").dropna()
+
+        closer = pd.Series(dtype="bool")
+        if {"distanceToPhotoGeotagMeters", "distanceToReferenceMeters"}.issubset(group.columns):
+            photo_ref = pd.to_numeric(group["distanceToPhotoGeotagMeters"], errors="coerce")
+            zero_ref = pd.to_numeric(group["distanceToReferenceMeters"], errors="coerce")
+            valid = photo_ref.notna() & zero_ref.notna()
+            closer = (photo_ref[valid] < zero_ref[valid])
+
+        rows.append({
+            "deviceModel": device,
+            "anzahlExperimente": int(values.count()),
+            "mittelwertMeter": values.mean(),
+            "medianMeter": values.median(),
+            "standardabweichungMeter": values.std(),
+            "fotoGeotagNaeherAls0SekundenProzent": float(closer.mean() * 100.0) if not closer.empty else float("nan"),
+        })
+
+    return pd.DataFrame(rows).sort_values("deviceModel").reset_index(drop=True)
+
+
+def add_photo_reference_extras(table: pd.DataFrame, experiments_df: pd.DataFrame) -> pd.DataFrame:
+    """Ergänzt den Foto-Referenzvergleich um den Anteil der Abweichungen > 100 m."""
+    if table.empty:
+        return table
+
+    result = table.copy()
+    shares = {}
+    for device, group in experiments_df.groupby("deviceModel", dropna=False):
+        values = pd.to_numeric(group.get("distanceToPhotoGeotagMeters"), errors="coerce").dropna()
+        shares[device] = float((values > 100.0).mean() * 100.0) if not values.empty else float("nan")
+    result["anteilUeber100mProzent"] = result["deviceModel"].map(shares)
+    return result
+
+
+def create_overall_accuracy_table(df: pd.DataFrame) -> pd.DataFrame:
+    values = pd.to_numeric(df.get("distanceToReferenceMeters"), errors="coerce").dropna()
+    if values.empty:
+        return pd.DataFrame(columns=[
+            "Anzahl", "MittelwertMeter", "MedianMeter", "StandardabweichungMeter", "MinimumMeter", "MaximumMeter"
+        ])
+    return pd.DataFrame([{
+        "Anzahl": int(values.count()),
+        "MittelwertMeter": values.mean(),
+        "MedianMeter": values.median(),
+        "StandardabweichungMeter": values.std(),
+        "MinimumMeter": values.min(),
+        "MaximumMeter": values.max(),
+    }])
+
+
+def create_accuracy_radius_table(df: pd.DataFrame) -> pd.DataFrame:
+    """Kompakte Tabelle für F7: liegt die RTK-Referenz innerhalb Android Accuracy?"""
+    rows = []
+    for label, subset in [
+        ("Gesamt", df),
+        ("0 Sekunden", df[pd.to_numeric(df.get("offsetSeconds"), errors="coerce").eq(0)]),
+        ("10 Sekunden", df[pd.to_numeric(df.get("offsetSeconds"), errors="coerce").eq(10)]),
+        ("30 Sekunden", df[pd.to_numeric(df.get("offsetSeconds"), errors="coerce").eq(30)]),
+        ("60 Sekunden", df[pd.to_numeric(df.get("offsetSeconds"), errors="coerce").eq(60)]),
+        ("90 Sekunden", df[pd.to_numeric(df.get("offsetSeconds"), errors="coerce").eq(90)]),
+        ("120 Sekunden", df[pd.to_numeric(df.get("offsetSeconds"), errors="coerce").eq(120)]),
+    ]:
+        distance = pd.to_numeric(subset.get("distanceToReferenceMeters"), errors="coerce")
+        accuracy = pd.to_numeric(subset.get("androidAccuracyMeters"), errors="coerce")
+        valid = distance.notna() & accuracy.notna()
+        within = (distance[valid] <= accuracy[valid])
+        rows.append({
+            "Zeitraum": label,
+            "AuswertbareMessungen": int(valid.sum()),
+            "InnerhalbAccuracyRadius": int(within.sum()),
+            "AnteilProzent": float(within.mean() * 100.0) if not within.empty else float("nan"),
+        })
+    return pd.DataFrame(rows)
+
+ENVIRONMENT_ORDER = [
+    "Freie Fläche",
+    "Hauptweg",
+    "Trampelpfad",
+    "Unter Bäumen",
+]
+
+
+def sort_by_environment_order(
+    table: pd.DataFrame,
+    leading_columns: list[str] | None = None,
+    trailing_columns: list[str] | None = None,
+) -> pd.DataFrame:
+    """Sortiert environmentType in der fachlich vorgegebenen Reihenfolge."""
+    if table.empty or "environmentType" not in table.columns:
+        return table
+
+    leading_columns = leading_columns or []
+    trailing_columns = trailing_columns or []
+    order_map = {name: index for index, name in enumerate(ENVIRONMENT_ORDER)}
+    result = table.copy()
+    result["_environmentOrder"] = result["environmentType"].map(order_map).fillna(len(ENVIRONMENT_ORDER))
+    sort_columns = [*leading_columns, "_environmentOrder", *trailing_columns]
+    return result.sort_values(sort_columns, kind="stable").drop(columns="_environmentOrder").reset_index(drop=True)
+
+
 def run_all_analyses(measurements_df: pd.DataFrame, experiments_df: pd.DataFrame) -> dict[str, pd.DataFrame]:
     df = measurements_df.copy()
 
@@ -364,14 +526,34 @@ def run_all_analyses(measurements_df: pd.DataFrame, experiments_df: pd.DataFrame
         df,
         ["environmentType", "offsetSeconds"],
         "distanceToReferenceMeters",
-    ).sort_values(["environmentType", "offsetSeconds"])
+    )
+    f1_time_offsets_by_environment = sort_by_environment_order(
+        f1_time_offsets_by_environment, trailing_columns=["offsetSeconds"]
+    )
+
+    # F1 zusätzlich je Smartphone – wird im Text für den 0/120-s-Vergleich benötigt.
+    f1_time_offsets_by_device = summarize_group(
+        df,
+        ["deviceModel", "offsetSeconds"],
+        "distanceToReferenceMeters",
+    ).sort_values(["deviceModel", "offsetSeconds"])
 
     # F2: Umgebungstypen
     f2_environment = summarize_group(
         df,
         ["environmentType"],
         "distanceToReferenceMeters",
-    ).sort_values("mittelwertMeter")
+    )
+    f2_environment = sort_by_environment_order(f2_environment)
+
+    f2_environment_by_device = summarize_group(
+        df,
+        ["deviceModel", "environmentType"],
+        "distanceToReferenceMeters",
+    )
+    f2_environment_by_device = sort_by_environment_order(
+        f2_environment_by_device, leading_columns=["deviceModel"]
+    )
 
     # F3: Smartphone-Modelle
     f3_devices = summarize_group(
@@ -380,18 +562,23 @@ def run_all_analyses(measurements_df: pd.DataFrame, experiments_df: pd.DataFrame
         "distanceToReferenceMeters",
     ).sort_values("mittelwertMeter")
 
-    # F4: Foto-Geotag vs. Referenzdaten – inklusive EXIF-Höhe, sofern vorhanden.
+    # F4 ist eine Experiment-Auswertung: ein Foto-Geotag gehört genau zu einem Experiment.
+    # Deshalb hier bewusst experiments_df verwenden (nicht jede der sechs Messungen).
     f4_photo_geotags = summarize_group(
-        df,
+        experiments_df,
         ["environmentType"],
         "distanceToPhotoGeotagMeters",
-    ).sort_values(["environmentType"])
+    )
+    f4_photo_geotags = sort_by_environment_order(f4_photo_geotags)
 
     f4_photo_geotags_overall = summarize_group(
-        df,
+        experiments_df,
         ["deviceModel"],
         "distanceToPhotoGeotagMeters",
     ).sort_values("mittelwertMeter")
+    f4_photo_geotags_overall = add_photo_reference_extras(f4_photo_geotags_overall, experiments_df)
+
+    f4_photo_vs_zero = create_photo_vs_zero_second_table(df)
 
     # F5: Genauigkeit aller Smartphone-Messungen unter Praxisbedingungen
     f5_all_practical = summarize_group(
@@ -411,7 +598,8 @@ def run_all_analyses(measurements_df: pd.DataFrame, experiments_df: pd.DataFrame
         df,
         ["environmentType"],
         "distanceToReferenceMeters",
-    ).sort_values("mittelwertMeter")
+    )
+    f6_environment_all_types = sort_by_environment_order(f6_environment_all_types)
 
     df_env_comparison = add_environment_comparison_group(df)
     f6_forest_vs_open = summarize_group(
@@ -431,7 +619,10 @@ def run_all_analyses(measurements_df: pd.DataFrame, experiments_df: pd.DataFrame
         df,
         ["area", "environmentType", "offsetSeconds"],
         "distanceToReferenceMeters",
-    ).sort_values(["area", "environmentType", "offsetSeconds"])
+    )
+    f7_reference_by_offset = sort_by_environment_order(
+        f7_reference_by_offset, leading_columns=["area"], trailing_columns=["offsetSeconds"]
+    )
 
     # GNSS- und Höhenqualitätsdaten: DOP, C/N0, Satelliten, Höhe und 3D-Distanz.
     # Diese Auswertungen hängen bewusst nicht von einer Referenzdistanz ab.
@@ -443,7 +634,8 @@ def run_all_analyses(measurements_df: pd.DataFrame, experiments_df: pd.DataFrame
     gnss_quality_by_environment = summarize_gnss_quality(
         df,
         ["environmentType"],
-    ).sort_values("environmentType")
+    )
+    gnss_quality_by_environment = sort_by_environment_order(gnss_quality_by_environment)
 
     # Mit "Waldtyp" ist hier das Untersuchungsgebiet gemeint:
     # Stadtwald oder Biosphärenreservat – nicht die Vegetations-/Wegklasse.
@@ -461,15 +653,26 @@ def run_all_analyses(measurements_df: pd.DataFrame, experiments_df: pd.DataFrame
         "distanceToReferenceMeters",
     ).sort_values("mittelwertMeter")
 
+    f8_area_by_device = summarize_group(
+        df,
+        ["deviceModel", "area"],
+        "distanceToReferenceMeters",
+    ).sort_values(["deviceModel", "area"])
+
     f8_area_environment = summarize_group(
         df,
         ["area", "environmentType"],
         "distanceToReferenceMeters",
-    ).sort_values(["area", "mittelwertMeter"])
+    )
+    f8_area_environment = sort_by_environment_order(
+        f8_area_environment, leading_columns=["area"]
+    )
 
     # Zusatz: Stabilität/Streuung der Messpunkte auch ohne Referenzdaten.
     stability_rows = []
-    for experiment_id, group in df.groupby("experimentId", dropna=False):
+    for (area, experiment_id, device_model), group in df.groupby(
+        ["area", "experimentId", "deviceModel"], dropna=False
+    ):
         center_lat = group["latitude"].mean()
         center_lon = group["longitude"].mean()
 
@@ -482,9 +685,9 @@ def run_all_analyses(measurements_df: pd.DataFrame, experiments_df: pd.DataFrame
         altitudes = pd.to_numeric(group.get("altitude"), errors="coerce")
         stability_rows.append({
             "experimentId": experiment_id,
-            "area": group["area"].iloc[0],
+            "area": area,
             "environmentType": group["environmentType"].iloc[0],
-            "deviceModel": group["deviceModel"].iloc[0],
+            "deviceModel": device_model,
             "anzahlMessungen": len(group),
             "mittelpunktLatitude": center_lat,
             "mittelpunktLongitude": center_lon,
@@ -499,13 +702,22 @@ def run_all_analyses(measurements_df: pd.DataFrame, experiments_df: pd.DataFrame
     stability_by_experiment = pd.DataFrame(stability_rows)
     altitude_details = create_altitude_detail_table(df)
 
+    # Kleine Tabellen für den eigentlichen Ergebnisteil. Die detaillierten Tabellen
+    # bleiben unverändert im Dictionary und damit als CSV/Report-Anhang erhalten.
+    report_data_basis = create_data_basis_table(df, experiments_df)
+    report_overall_accuracy = create_overall_accuracy_table(df)
+    report_accuracy_radius = create_accuracy_radius_table(df)
+
     return {
         "F1_zeitabstand": f1_time_offsets,
         "F1_zeitabstand_nach_umgebung": f1_time_offsets_by_environment,
+        "F1_zeitabstand_nach_geraet": f1_time_offsets_by_device,
         "F2_umgebungstypen": f2_environment,
+        "F2_umgebungstypen_nach_geraet": f2_environment_by_device,
         "F3_geraetemodelle": f3_devices,
         "F4_foto_geotags_nach_umgebung_und_zeit": f4_photo_geotags,
         "F4_foto_geotags_nach_geraet": f4_photo_geotags_overall,
+        "F4_foto_vs_0s_nach_geraet": f4_photo_vs_zero,
         "F5_alle_messungen_nach_geraet": f5_all_practical,
         "F5_alle_messungen_gesamt": f5_all_practical_overall,
         "F6_alle_umgebungstypen": f6_environment_all_types,
@@ -513,10 +725,14 @@ def run_all_analyses(measurements_df: pd.DataFrame, experiments_df: pd.DataFrame
         "F7_referenzvergleich_nach_experiment": f7_reference_by_experiment,
         "F7_referenzvergleich_nach_zeit": f7_reference_by_offset,
         "F8_gebietvergleich": f8_area,
+        "F8_gebiet_nach_geraet": f8_area_by_device,
         "F8_gebiet_und_umgebung": f8_area_environment,
         "GNSS_qualitaet_nach_handy": gnss_quality_by_device,
         "GNSS_qualitaet_nach_umgebungstyp": gnss_quality_by_environment,
         "GNSS_qualitaet_nach_waldtyp": gnss_quality_by_forest_type,
         "zusatz_hoehe_und_3d_einzelmessungen": altitude_details,
         "zusatz_stabilitaet_ohne_referenz": stability_by_experiment,
+        "bericht_datengrundlage": report_data_basis,
+        "bericht_gesamtgenauigkeit": report_overall_accuracy,
+        "bericht_accuracy_radius": report_accuracy_radius,
     }
