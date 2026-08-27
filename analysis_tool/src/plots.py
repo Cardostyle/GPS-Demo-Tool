@@ -9,6 +9,15 @@ import pandas as pd
 from src.config import EXPECTED_OFFSET_SECONDS, FOREST_ENVIRONMENTS, OPEN_ENVIRONMENTS
 from src.geo_utils import distance_meters
 
+plt.rcParams.update({
+    "font.size": 14,          # allgemeine Schriftgröße
+    "axes.titlesize": 18,     # Diagrammüberschriften
+    "axes.labelsize": 16,     # x-/y-Achsenbeschriftungen
+    "xtick.labelsize": 14,    # Beschriftung der x-Achse
+    "ytick.labelsize": 14,    # Beschriftung der y-Achse
+    "legend.fontsize": 14,    # Legendentext
+    "legend.title_fontsize": 15,
+})
 
 ENVIRONMENT_ORDER = [
     "Freie Fläche",
@@ -320,6 +329,7 @@ def save_grouped_boxplot(
     group_label_map: dict | None = None,
     subgroup_label_map: dict | None = None,
     xlabel: str | None = None,
+    legend_outside: bool = False,
 ) -> None:
     """
     Erzeugt einen gruppierten Boxplot mit einer Haupt- und einer Untergruppe.
@@ -579,16 +589,26 @@ def save_grouped_boxplot(
     )
 
     if legend_handles:
-        ax.legend(
-            handles=legend_handles,
-            title="Smartphone",
-        )
+        if legend_outside:
+            ax.legend(
+                handles=legend_handles,
+                title="Smartphone",
+                loc="upper left",
+                bbox_to_anchor=(1.02, 1),
+                borderaxespad=0,
+            )
+        else:
+            ax.legend(
+                handles=legend_handles,
+                title="Smartphone",
+            )
 
     fig.tight_layout()
 
     fig.savefig(
         output_path,
         dpi=200,
+        bbox_inches="tight",
     )
 
     plt.close(fig)
@@ -930,7 +950,7 @@ def create_all_plots(
         tables[
             "F8_gebietvergleich"
         ],
-        "area",
+        "Untersuchungsgebiet",
         "F8: Abweichung nach Untersuchungsgebiet",
         "Abweichung zur Referenz [m]",
         output_dir
@@ -941,7 +961,7 @@ def create_all_plots(
         tables[
             "F8_gebietvergleich"
         ],
-        "area",
+        "Untersuchungsgebiet",
         "mittlere3dEntfernungMeter",
         "F8: Mittlere 3D-Abweichung nach Untersuchungsgebiet",
         "Mittlere 3D-Abweichung zur Referenz [m]",
@@ -953,7 +973,7 @@ def create_all_plots(
         tables[
             "F8_gebietvergleich"
         ],
-        "area",
+        "Untersuchungsgebiet",
         "mittlereAbsoluteHoehenabweichungMeter",
         "F8: Mittlere absolute Höhenabweichung nach Untersuchungsgebiet",
         "Mittlere absolute Höhenabweichung [m]",
@@ -1005,7 +1025,7 @@ def create_all_plots(
 
     save_boxplot(
         measurements_df,
-        "area",
+        "Untersuchungsgebiet",
         "distanceToReferenceMeters",
         "Verteilung der Referenzabweichung nach Untersuchungsgebiet",
         "Abweichung zur Referenz [m]",
@@ -1159,7 +1179,7 @@ def create_all_plots(
 
     save_grouped_boxplot(
         measurements_df,
-        "area",
+        "Untersuchungsgebiet",
         "deviceModel",
         "distanceToReferenceMeters",
         "F8: Verteilung der Referenzabweichung nach Untersuchungsgebiet und Smartphone",
@@ -1195,6 +1215,7 @@ def create_all_plots(
         subgroup_order=DEVICE_ORDER,
         subgroup_label_map=DEVICE_LABELS,
         xlabel="Zeitabstand [s]",
+        legend_outside=True,
     )
 
     # --------------------------------------------------------------
