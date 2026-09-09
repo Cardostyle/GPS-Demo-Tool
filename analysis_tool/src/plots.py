@@ -1066,7 +1066,7 @@ def create_all_plots(
         "environmentType",
         "deviceModel",
         "distanceToReferenceMeters",
-        "F2: Verteilung der Referenzabweichung nach Umgebungstyp und Smartphone",
+        "F2: Verteilung der Referenzabweichung\nnach Umgebungstyp und Smartphone",
         "Abweichung zur Referenz [m]",
         output_dir
         / "boxplot_umgebungstypen_nach_geraet.png",
@@ -1266,8 +1266,8 @@ def create_all_plots(
         zero_second_rows,
         "deviceModel",
         "distanceToPhotoGeotagMeters",
-        "F4: Verteilung der Foto-Geotag-Abweichung zur RTK-Referenz nach Smartphone",
-        "Abweichung Foto-Geotag zur RTK-Referenz [m]",
+        "F4: Verteilung der Foto-Geotag-Abweichung\nzur RTK-Referenz nach Smartphone",
+        "Abweichung Foto-Geotag zur\nRTK-Referenz [m]",
         output_dir
         / "boxplot_foto_geotags_nach_geraet.png",
         group_order=DEVICE_ORDER,
@@ -1332,11 +1332,23 @@ def create_all_plots(
             photo_vs_zero_rows,
             "deviceModel",
             "distancePhotoToZeroSecondMeters",
-            "F4: Verteilung der Distanz zwischen Foto-Geotag und 0-Sekunden-Messung nach Smartphone",
-            "Distanz Foto-Geotag zu 0-s-Messung [m]",
+            "F4: Verteilung der Distanz zwischen Foto-Geotag\nund 0-Sekunden-Messung nach Smartphone",
+            "Distanz Foto-Geotag\nzu 0-s-Messung [m]",
             output_dir
             / "boxplot_foto_vs_0s_nach_geraet.png",
             group_order=DEVICE_ORDER,
             label_map=DEVICE_LABELS,
             xlabel="Smartphone-Modell",
+        )
+
+        save_boxplot(
+            measurements_df.assign(
+                Referenzvergleich="Alle Messungen"
+            ),
+            "Referenzvergleich",
+            "distanceToReferenceMeters",
+            "Verteilung aller Messwerte im Vergleich zur RTK-Referenz",
+            "Abweichung zur Referenz [m]",
+            output_dir / "boxplot_alle_werte_vs_referenz.png",
+            xlabel="Messungen",
         )
